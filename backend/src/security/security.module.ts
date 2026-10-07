@@ -1,3 +1,4 @@
+// Registers the encryption provider and controller; AuthModule supplies the guard for protected access.
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { EncryptionService } from './encryption.service';

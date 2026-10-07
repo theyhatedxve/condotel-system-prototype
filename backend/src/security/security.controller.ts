@@ -1,3 +1,5 @@
+// Accepts encryption/decryption requests while keeping all key handling inside EncryptionService.
+// The class-level guard requires an authenticated user for both operations.
 import {
   BadRequestException,
   Body,
@@ -20,6 +22,7 @@ class EncryptDemoDto {
   text: string;
 }
 
+// DTO lengths describe Base64 text; EncryptionService also validates decoded IV/tag sizes and encoding.
 class DecryptDemoDto {
   @IsString()
   @MaxLength(22000)
@@ -47,6 +50,7 @@ export class SecurityController {
   ) {
     this.checkPassword(request.user);
     try {
+      // Return ciphertext, IV and authentication tag only; the master key stays server-side.
       return this.encryption.encrypt(dto.text);
     } catch {
       throw new ServiceUnavailableException(
@@ -65,6 +69,7 @@ export class SecurityController {
     try {
       return { text: this.encryption.decrypt(dto) };
     } catch (error) {
+      // Map invalid encrypted input to a client error; other failures receive an availability error.
       if (
         error instanceof Error &&
         error.message === 'Encrypted value could not be decrypted.'
@@ -79,6 +84,7 @@ export class SecurityController {
     }
   }
 
+  // Require completion of the account's password change before permitting cryptographic operations.
   private checkPassword(user: AuthenticatedUser) {
     if (user.mustChangePassword)
       throw new ForbiddenException(

@@ -1,3 +1,4 @@
+// Coordinates account persistence, password verification and issuance of signed access tokens.
 import {
   BadRequestException,
   ConflictException,
@@ -38,7 +39,8 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    // Passwords are one-way Argon2id hashes; AES is only used by the text demo.
+    // Passwords use one-way Argon2id hashing because authentication requires verification,
+    // not reversible storage; only the resulting hash is persisted.
     const passwordHash = await argon2.hash(dto.password, {
       type: argon2.argon2id,
     });
@@ -56,6 +58,7 @@ export class AuthService {
       });
       return { message: 'Registration successful.', user };
     } catch (error) {
+      // Database uniqueness enforcement also catches competing registrations for the same identity.
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
@@ -70,6 +73,8 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: { OR: [{ email: dto.identifier }, { username: dto.identifier }] },
     });
+    // Missing accounts, inactive accounts and incorrect passwords share the same failure response.
+    // Argon2id verifies the stored hash without recovering the original password.
     if (
       !user ||
       user.status !== 'ACTIVE' ||
@@ -82,6 +87,7 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
       select: publicUser,
     });
+    // Sign only after successful verification; the subject identifies the account without embedding its data.
     const accessToken = await this.jwt.signAsync({ sub: user.id });
     return {
       message: 'Login successful.',
@@ -119,6 +125,7 @@ export class AuthService {
     const passwordHash = await argon2.hash(dto.newPassword, {
       type: argon2.argon2id,
     });
+    // Persist the replacement hash and clear the password-change requirement in the same update.
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash, mustChangePassword: false },

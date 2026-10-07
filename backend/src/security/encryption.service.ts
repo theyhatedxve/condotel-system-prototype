@@ -1,7 +1,9 @@
+// Centralizes AES-256-GCM operations, validating server-side key material and encrypted payloads.
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
+// Transport strings contain the ciphertext and metadata needed to authenticate decryption, never the key.
 export interface EncryptedValue {
   ciphertext: string;
   iv: string;
@@ -19,7 +21,7 @@ export class EncryptionService {
   constructor(private readonly configService: ConfigService) {}
 
   // UTF-8 plaintext; ciphertext, IV and tag use canonical padded Base64.
-  // The demonstration returns these values without persisting the sample text.
+  // These operations return values without persisting plaintext or encrypted output.
   encrypt(plaintext: string): EncryptedValue {
     const key = this.getMasterKey();
 
@@ -28,6 +30,7 @@ export class EncryptionService {
     }
 
     // Reusing an IV with the same AES-GCM key can compromise confidentiality and integrity.
+    // Draw a fresh 12-byte nonce for each operation to make collisions negligibly likely.
     const iv = randomBytes(IV_BYTES);
     const cipher = createCipheriv(ALGORITHM, key, iv, {
       authTagLength: AUTH_TAG_BYTES,
@@ -40,6 +43,7 @@ export class EncryptionService {
     return {
       ciphertext: ciphertext.toString('base64'),
       iv: iv.toString('base64'),
+      // The completed GCM tag lets decryption detect altered ciphertext or mismatched key/IV.
       authTag: cipher.getAuthTag().toString('base64'),
     };
   }
@@ -71,6 +75,7 @@ export class EncryptionService {
         decipher.final(),
       ]).toString('utf8');
     } catch {
+      // Malformed payloads and authentication failures share one error without revealing input data.
       throw new Error(DECRYPTION_ERROR);
     }
   }
@@ -93,6 +98,7 @@ export class EncryptionService {
       'AES master key must be valid canonical Base64.',
     );
 
+    // AES-256 requires exactly 32 decoded bytes, not a 32-character encoded string.
     if (key.length !== KEY_BYTES) {
       throw new Error('AES master key must decode to exactly 32 bytes.');
     }

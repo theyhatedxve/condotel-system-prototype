@@ -1,3 +1,4 @@
+// Wires credential handling and Passport JWT verification, exporting the guard for other modules.
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -12,6 +13,7 @@ import { JwtStrategy } from './jwt.strategy';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],
+      // Resolve signing configuration through dependency injection and fail startup if it is invalid.
       useFactory: (config: ConfigService) => {
         const secret = config.get<string>('JWT_SECRET');
         const expiresIn = Number(

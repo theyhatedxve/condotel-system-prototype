@@ -1,3 +1,5 @@
+// Exposes account and session operations, delegating credential handling to AuthService.
+// Guarded methods receive the user resolved by the JWT strategy rather than a client-supplied identity.
 import {
   Body,
   Controller,

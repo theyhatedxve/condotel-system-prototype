@@ -1,3 +1,5 @@
+// Composes authentication, encryption and shared database infrastructure.
+// Global configuration makes environment-backed settings available to injected services.
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';

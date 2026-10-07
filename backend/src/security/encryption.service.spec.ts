@@ -1,3 +1,4 @@
+// Verifies encryption interoperability, integrity checks and configuration validation with isolated keys.
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createDecipheriv, randomBytes } from 'node:crypto';
@@ -35,6 +36,7 @@ describe('EncryptionService', () => {
     await module.close();
   });
 
+  // Flip a bit without changing encoding or length, isolating authentication from format validation.
   function tamper(base64: string): string {
     const bytes = Buffer.from(base64, 'base64');
     bytes[0] ^= 1;
@@ -180,6 +182,7 @@ describe('EncryptionService', () => {
 
   it('strictly rejects malformed Base64 master keys without echoing them', () => {
     const encrypted = service.encrypt('secret');
+    // Alter unused padding bits: the bytes can still decode, but the Base64 representation is not canonical.
     const noncanonical =
       testKey.slice(0, -2) +
       'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'[

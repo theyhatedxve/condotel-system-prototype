@@ -1,3 +1,5 @@
+// Defines the request validation and normalization used by the global ValidationPipe.
+// Identity fields are normalized, while passwords retain their exact submitted characters.
 import { Transform } from 'class-transformer';
 import {
   IsEmail,

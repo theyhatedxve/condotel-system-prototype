@@ -1,3 +1,4 @@
+// Verifies bearer-token signatures and expiration, then resolves the current request user.
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
@@ -18,6 +19,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  // Passport calls this after token verification; a signed payload still needs a usable subject.
+  // AuthService reloads the account so deleted or inactive users cannot rely on an old token.
   validate(payload: { sub?: unknown }) {
     if (typeof payload.sub !== 'string' || !payload.sub)
       throw new UnauthorizedException();
