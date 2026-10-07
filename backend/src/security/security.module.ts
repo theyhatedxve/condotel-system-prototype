@@ -1,0 +1,11 @@
+import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { EncryptionService } from './encryption.service';
+import { SecurityController } from './security.controller';
+
+@Module({
+  imports: [AuthModule],
+  controllers: [SecurityController],
+  providers: [EncryptionService],
+})
+export class SecurityModule {}

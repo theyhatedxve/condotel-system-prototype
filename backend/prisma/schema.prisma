@@ -1,0 +1,42 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UserRole {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// Existing accounts and hashes survive the reduction; roles are display-only.
+model User {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  username           String?    @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  phone              String?
+  role               UserRole   @default(CUSTOMER)
+  status             UserStatus @default(ACTIVE)
+  lastLoginAt        DateTime?
+  mustChangePassword Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@index([lastName, firstName])
+}
