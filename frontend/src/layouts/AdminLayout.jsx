@@ -1,4 +1,3 @@
-// Keeps the sidebar and topbar around the protected page rendered by Outlet.
 import {
   Outlet,
 } from 'react-router-dom';

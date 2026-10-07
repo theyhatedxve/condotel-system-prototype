@@ -107,7 +107,6 @@ export class AuthService {
       throw new UnauthorizedException('User account is unavailable.');
     return user;
   }
-
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (
@@ -125,7 +124,6 @@ export class AuthService {
     const passwordHash = await argon2.hash(dto.newPassword, {
       type: argon2.argon2id,
     });
-    // Persist the replacement hash and clear the password-change requirement in the same update.
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash, mustChangePassword: false },

@@ -1,4 +1,3 @@
-// Boots the route tree inside BrowserRouter and AuthProvider so pages share session state.
 import { StrictMode } from "react";
 
 import { createRoot } from "react-dom/client";
@@ -10,6 +9,7 @@ import { AuthProvider } from "./features/auth/AuthContext";
 import AppRoutes from "./routes/AppRoutes";
 
 import "./styles/global.css";
+import "./styles/presentation.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

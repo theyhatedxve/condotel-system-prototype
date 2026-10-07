@@ -1,4 +1,3 @@
-/* Condotel branding and sign-in form use a split desktop layout. */
 .login-page {
   min-height: 100vh;
 
@@ -20,13 +19,19 @@
   display: flex;
   flex-direction: column;
 
-  justify-content: space-between;
+  justify-content:
+    space-between;
 
   overflow: hidden;
 
   color: #ffffff;
 
-  background: linear-gradient(145deg, #0c426f, #031c35 72%);
+  background:
+    linear-gradient(
+      145deg,
+      #0c426f,
+      #031c35 72%
+    );
 }
 
 .login-visual::before {
@@ -42,7 +47,11 @@
       rgba(66, 157, 218, 0.35),
       transparent 24%
     ),
-    linear-gradient(to top, rgba(3, 20, 38, 0.9), rgba(6, 47, 82, 0.3));
+    linear-gradient(
+      to top,
+      rgba(3, 20, 38, 0.9),
+      rgba(6, 47, 82, 0.3)
+    );
 }
 
 .login-visual::after {
@@ -58,7 +67,8 @@
 
   border-radius: 50%;
 
-  background: rgba(31, 126, 187, 0.2);
+  background:
+    rgba(31, 126, 187, 0.2);
 
   filter: blur(2px);
 }
@@ -67,11 +77,12 @@
   position: absolute;
   inset: 0;
 
-  background: linear-gradient(
-    120deg,
-    rgba(0, 18, 38, 0.12),
-    rgba(0, 22, 46, 0.4)
-  );
+  background:
+    linear-gradient(
+      120deg,
+      rgba(0, 18, 38, 0.12),
+      rgba(0, 22, 46, 0.4)
+    );
 }
 
 .login-brand,
@@ -97,7 +108,11 @@
 .login-brand h1 {
   margin: 0;
 
-  font-size: clamp(34px, 5vw, 54px);
+  font-size: clamp(
+    34px,
+    5vw,
+    54px
+  );
 
   letter-spacing: 0.12em;
 }
@@ -129,7 +144,8 @@
 
   max-width: 330px;
 
-  color: rgba(255, 255, 255, 0.76);
+  color:
+    rgba(255, 255, 255, 0.76);
 
   line-height: 1.6;
 }
@@ -141,10 +157,10 @@
 
   font-size: 14px;
 
-  color: rgba(255, 255, 255, 0.92);
+  color:
+    rgba(255, 255, 255, 0.92);
 }
 
-/* Form sizing, input focus feedback and submission states. */
 .login-form-panel {
   display: flex;
 
@@ -155,7 +171,10 @@
 }
 
 .login-form-container {
-  width: min(100%, 430px);
+  width: min(
+    100%,
+    430px
+  );
 }
 
 .login-heading {
@@ -166,13 +185,15 @@
   margin: 0 0 8px;
 
   font-size: 30px;
-  color: var(--color-navy-950);
+  color:
+    var(--color-navy-950);
 }
 
 .login-heading p {
   margin: 0;
 
-  color: var(--color-text-muted);
+  color:
+    var(--color-text-muted);
 }
 
 .login-form {
@@ -191,7 +212,8 @@
   font-size: 13px;
   font-weight: 600;
 
-  color: var(--color-text);
+  color:
+    var(--color-text);
 }
 
 .input-wrapper {
@@ -202,27 +224,38 @@
 
   gap: 11px;
 
-  padding: 0 14px;
+  padding:
+    0 14px;
 
-  border: 1px solid var(--color-border);
+  border:
+    1px solid
+    var(--color-border);
 
-  border-radius: var(--radius-sm);
+  border-radius:
+    var(--radius-sm);
 
-  background: #ffffff;
+  background:
+    #ffffff;
 
   transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    border-color
+      var(--transition-fast),
+    box-shadow
+      var(--transition-fast);
 }
 
 .input-wrapper:focus-within {
-  border-color: var(--color-blue-500);
+  border-color:
+    var(--color-blue-500);
 
-  box-shadow: 0 0 0 3px rgba(22, 135, 224, 0.12);
+  box-shadow:
+    0 0 0 3px
+    rgba(22, 135, 224, 0.12);
 }
 
 .input-wrapper svg {
-  color: #6c849b;
+  color:
+    #6c849b;
 
   flex-shrink: 0;
 }
@@ -235,7 +268,8 @@
 
   background: transparent;
 
-  color: var(--color-text);
+  color:
+    var(--color-text);
 }
 
 .password-toggle {
@@ -247,7 +281,8 @@
   border: 0;
   background: transparent;
 
-  color: var(--color-text-muted);
+  color:
+    var(--color-text-muted);
 }
 
 .login-options {
@@ -267,23 +302,42 @@
 
   gap: 8px;
 
-  color: var(--color-text-muted);
+  color:
+    var(--color-text-muted);
 }
 
 .remember-option input {
-  accent-color: var(--color-blue-700);
+  accent-color:
+    var(--color-blue-700);
+}
+
+.text-button {
+  padding: 0;
+
+  border: none;
+  background: transparent;
+
+  color:
+    var(--color-blue-700);
+
+  font-size: 13px;
 }
 
 .login-error {
   padding: 11px 13px;
 
-  border: 1px solid rgba(214, 69, 69, 0.2);
+  border:
+    1px solid
+    rgba(214, 69, 69, 0.2);
 
-  border-radius: var(--radius-sm);
+  border-radius:
+    var(--radius-sm);
 
-  background: rgba(214, 69, 69, 0.07);
+  background:
+    rgba(214, 69, 69, 0.07);
 
-  color: #b23434;
+  color:
+    #b23434;
 
   font-size: 13px;
 }
@@ -293,25 +347,30 @@
 
   border: none;
 
-  border-radius: var(--radius-sm);
+  border-radius:
+    var(--radius-sm);
 
-  background: linear-gradient(
-    90deg,
-    var(--color-blue-700),
-    var(--color-navy-800)
-  );
+  background:
+    linear-gradient(
+      90deg,
+      var(--color-blue-700),
+      var(--color-navy-800)
+    );
 
   color: #ffffff;
 
   font-weight: 600;
 
   transition:
-    transform var(--transition-fast),
-    opacity var(--transition-fast);
+    transform
+      var(--transition-fast),
+    opacity
+      var(--transition-fast);
 }
 
 .sign-in-button:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform:
+    translateY(-1px);
 }
 
 .sign-in-button:disabled {
@@ -324,13 +383,15 @@
 
   text-align: center;
 
-  color: #9aabbc;
+  color:
+    #9aabbc;
 
   font-size: 12px;
 }
 
-/* Small screens show only the form, with the branding panel hidden. */
-@media (max-width: 860px) {
+@media (
+  max-width: 860px
+) {
   .login-page {
     grid-template-columns: 1fr;
   }

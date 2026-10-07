@@ -81,6 +81,7 @@ export class LoginDto {
   @MaxLength(128)
   password: string;
 }
+
 export class ChangePasswordDto {
   @IsString()
   @MinLength(1)

@@ -12,7 +12,7 @@ import {
 import { AuthService } from './auth.service';
 import type { AuthenticatedUser } from './auth.service';
 import { ChangePasswordDto, LoginDto, RegisterDto } from './auth.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { JwtAuthGuard } from './jwt.strategy';
 
 @Controller('auth')
 export class AuthController {
@@ -34,7 +34,6 @@ export class AuthController {
   me(@Req() request: { user: AuthenticatedUser }) {
     return { user: request.user };
   }
-
   @Post('change-password')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)

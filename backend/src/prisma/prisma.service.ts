@@ -1,4 +1,3 @@
-// Integrates the SQLite-backed Prisma client with NestJS dependency injection and lifecycle hooks.
 import {
   Injectable,
   OnModuleDestroy,
@@ -32,12 +31,10 @@ export class PrismaService
     });
   }
 
-  // Await database connection during initialization before Nest starts serving requests.
   async onModuleInit(): Promise<void> {
     await this.$connect();
   }
 
-  // Release the client connection when Nest invokes module teardown.
   async onModuleDestroy(): Promise<void> {
     await this.$disconnect();
   }

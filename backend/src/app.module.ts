@@ -2,6 +2,7 @@
 // Global configuration makes environment-backed settings available to injected services.
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { DevicesModule } from './devices/devices.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SecurityModule } from './security/security.module';
@@ -12,6 +13,7 @@ import { SecurityModule } from './security/security.module';
     PrismaModule,
     AuthModule,
     SecurityModule,
+    DevicesModule,
   ],
 })
 export class AppModule {}

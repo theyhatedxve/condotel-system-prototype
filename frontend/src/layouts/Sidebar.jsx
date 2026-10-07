@@ -1,67 +1,160 @@
-// Navigation for the System: one dashboard with security and account section links.
-// Logout updates shared auth state; ProtectedRoute then redirects to login.
 import {
+  BarChart3,
+  BedDouble,
   Building2,
+  CalendarDays,
+  CreditCard,
   LayoutDashboard,
   LogOut,
-  ShieldCheck,
-  UserRound,
+  RadioTower,
+  Settings,
+  UserCog,
+  Users,
+  WalletCards,
 } from "lucide-react";
-import { NavLink, Link } from "react-router-dom";
+
+import { NavLink } from "react-router-dom";
+
 import { useAuth } from "../features/auth/useAuth";
+
+const navigation = [
+  {
+    label: "Dashboard",
+
+    path: "/admin/dashboard",
+
+    icon: LayoutDashboard,
+  },
+
+  {
+    label: "Guests",
+
+    path: "/admin/guests",
+
+    icon: Users,
+  },
+
+  {
+    label: "User Management",
+
+    path: "/admin/users",
+
+    icon: UserCog,
+  },
+
+  {
+    label: "Rooms",
+
+    path: "/admin/rooms",
+
+    icon: BedDouble,
+  },
+
+  {
+    label: "Reservations",
+
+    path: "/admin/reservations",
+
+    icon: CalendarDays,
+  },
+
+  {
+    label: "NFC Management",
+
+    path: "/admin/nfc",
+
+    icon: RadioTower,
+  },
+
+  {
+    label: "Device Management",
+    path: "/admin/devices",
+    icon: RadioTower,
+    adminOnly: true,
+  },
+  {
+    label: "Payments",
+
+    path: "/admin/payments",
+
+    icon: CreditCard,
+  },
+
+  {
+    label: "Transactions",
+
+    path: "/admin/transactions",
+
+    icon: WalletCards,
+  },
+
+  {
+    label: "Reports",
+
+    path: "/admin/reports",
+
+    icon: BarChart3,
+  },
+
+  {
+    label: "Settings",
+
+    path: "/admin/settings",
+
+    icon: Settings,
+  },
+];
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+
+  const visibleNavigation = navigation.filter(
+    (item) => !item.adminOnly || user?.role === "ADMIN",
+  );
+
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
         <Building2 size={32} />
+
         <div>
           <strong>CONDOTEL</strong>
+
           <span>NFC SYSTEM WITH PAYMENT</span>
         </div>
       </div>
+
       <div className="sidebar-user">
         <div className="sidebar-avatar">
-          {user.firstName.charAt(0).toUpperCase()}
+          {user?.firstName?.charAt(0)?.toUpperCase() || "A"}
         </div>
+
         <div>
-          <strong>{user.firstName}</strong>
-          <span>{user.role}</span>
+          <strong>{user?.firstName || "Admin"}</strong>
+
+          <span>{user?.role || "Administrator"}</span>
         </div>
       </div>
-      <nav className="sidebar-navigation" aria-label="Main navigation">
-        <NavLink
-          to="/dashboard"
-          title="Dashboard"
-          className={({ isActive }) =>
-            isActive ? "sidebar-link active" : "sidebar-link"
-          }
-        >
-          <LayoutDashboard size={18} />
-          <span>Dashboard</span>
-        </NavLink>
-        <Link
-          to="/dashboard#security"
-          title="Security Demo"
-          className="sidebar-link"
-        >
-          <ShieldCheck size={18} />
-          <span>Security Demo</span>
-        </Link>
-        <Link to="/dashboard#account" title="Account" className="sidebar-link">
-          <UserRound size={18} />
-          <span>Account</span>
-        </Link>
+
+      <nav className="sidebar-navigation">
+        {visibleNavigation.map(({ label, path, icon: Icon }) => (
+          <NavLink
+            key={path}
+            to={path}
+            className={({ isActive }) =>
+              isActive ? "sidebar-link active" : "sidebar-link"
+            }
+          >
+            <Icon size={18} />
+
+            <span>{label}</span>
+          </NavLink>
+        ))}
       </nav>
-      <button
-        type="button"
-        className="sidebar-logout"
-        onClick={logout}
-        title="Sign out"
-      >
+
+      <button type="button" className="sidebar-logout" onClick={logout}>
         <LogOut size={18} />
-        <span>Sign Out</span>
+        Sign Out
       </button>
     </aside>
   );

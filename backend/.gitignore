@@ -103,5 +103,4 @@ Thumbs.db
 
 # PlatformIO
 .pio/
-# Isolated authentication/security integration test databases
 .test-data-*/

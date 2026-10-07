@@ -1,25 +1,33 @@
-/* Shared shell: fixed sidebar, offset page content and a sticky topbar. */
 .admin-layout {
   min-height: 100vh;
 
   display: flex;
 
-  background: var(--color-background);
+  background:
+    var(--color-background);
 }
 
 .sidebar {
   position: fixed;
 
-  inset: 0 auto 0 0;
+  inset:
+    0 auto 0 0;
 
-  width: var(--sidebar-width);
+  width:
+    var(--sidebar-width);
 
   display: flex;
   flex-direction: column;
 
-  padding: 22px 14px;
+  padding:
+    22px 14px;
 
-  background: linear-gradient(180deg, #062f54, #052745);
+  background:
+    linear-gradient(
+      180deg,
+      #062f54,
+      #052745
+    );
 
   color: #ffffff;
 }
@@ -30,9 +38,12 @@
 
   gap: 11px;
 
-  padding: 4px 9px 24px;
+  padding:
+    4px 9px 24px;
 
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom:
+    1px solid
+    rgba(255, 255, 255, 0.12);
 }
 
 .sidebar-brand > div {
@@ -53,7 +64,8 @@
 
   letter-spacing: 0.12em;
 
-  color: rgba(255, 255, 255, 0.65);
+  color:
+    rgba(255, 255, 255, 0.65);
 }
 
 .sidebar-user {
@@ -62,7 +74,8 @@
 
   gap: 10px;
 
-  padding: 22px 9px;
+  padding:
+    22px 9px;
 }
 
 .sidebar-avatar,
@@ -72,9 +85,11 @@
 
   border-radius: 50%;
 
-  background: #dcebf5;
+  background:
+    #dcebf5;
 
-  color: var(--color-navy-900);
+  color:
+    var(--color-navy-900);
 
   font-weight: 700;
 }
@@ -98,7 +113,8 @@
 
   font-size: 10px;
 
-  color: rgba(255, 255, 255, 0.6);
+  color:
+    rgba(255, 255, 255, 0.6);
 }
 
 .sidebar-navigation {
@@ -119,22 +135,28 @@
 
   gap: 12px;
 
-  padding: 0 12px;
+  padding:
+    0 12px;
 
-  border-radius: 6px;
+  border-radius:
+    6px;
 
-  color: rgba(255, 255, 255, 0.76);
+  color:
+    rgba(255, 255, 255, 0.76);
 
   font-size: 13px;
 
   transition:
-    background var(--transition-fast),
-    color var(--transition-fast);
+    background
+      var(--transition-fast),
+    color
+      var(--transition-fast);
 }
 
 .sidebar-link:hover,
 .sidebar-link.active {
-  background: #0871bd;
+  background:
+    #0871bd;
 
   color: #ffffff;
 }
@@ -146,17 +168,24 @@
 
   background: transparent;
 
-  color: rgba(255, 255, 255, 0.72);
+  color:
+    rgba(255, 255, 255, 0.72);
 }
 
 .sidebar-logout:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background:
+    rgba(255, 255, 255, 0.08);
 }
 
 .admin-main {
-  width: calc(100% - var(--sidebar-width));
+  width:
+    calc(
+      100% -
+      var(--sidebar-width)
+    );
 
-  margin-left: var(--sidebar-width);
+  margin-left:
+    var(--sidebar-width);
 }
 
 .topbar {
@@ -172,11 +201,50 @@
   align-items: center;
   justify-content: space-between;
 
-  padding: 0 28px;
+  padding:
+    0 28px;
 
-  border-bottom: 1px solid var(--color-border);
+  border-bottom:
+    1px solid
+    var(--color-border);
 
-  background: rgba(255, 255, 255, 0.96);
+  background:
+    rgba(255, 255, 255, 0.96);
+}
+
+.topbar-search {
+  position: relative;
+  width:
+    min(100%, 360px);
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  color:
+    #8497a9;
+}
+
+.topbar-search input {
+  width: 100%;
+
+  padding:
+    8px 0;
+
+  border: none;
+
+  border-bottom:
+    1px solid
+    var(--color-border);
+
+  outline: none;
+
+  background: transparent;
+}
+
+.topbar-notifications {
+  position: relative;
 }
 
 .topbar-icon-button {
@@ -195,7 +263,8 @@
   border: none;
   background: transparent;
 
-  color: var(--color-navy-950);
+  color:
+    var(--color-navy-950);
 }
 
 .topbar-icon-button {
@@ -224,9 +293,10 @@
   padding: 28px;
 }
 
-/* Scope the compact width to the layout so global theme tokens cannot override it. */
-@media (max-width: 900px) {
-  .admin-layout {
+@media (
+  max-width: 900px
+) {
+  :root {
     --sidebar-width: 82px;
   }
 
@@ -244,33 +314,157 @@
   }
 }
 
+/* ============================================================
+   PROFILE DROPDOWN
+   ============================================================ */
+
+.topbar-profile-menu {
+  position: relative;
+}
+
 .topbar-profile {
   cursor: pointer;
 }
-.topbar-title {
-  font-size: 14px;
+
+.profile-dropdown {
+  position: absolute;
+
+  top:
+    calc(
+      100% + 10px
+    );
+
+  right: 0;
+
+  z-index: 50;
+
+  width: 240px;
+
+  overflow: hidden;
+
+  border:
+    1px solid
+    var(--color-border);
+
+  border-radius:
+    var(--radius-md);
+
+  background: #ffffff;
+
+  box-shadow:
+    0 18px 45px
+    rgba(
+      15,
+      23,
+      42,
+      0.16
+    );
 }
-.sidebar-link:focus-visible,
-.sidebar-logout:focus-visible {
-  outline: 2px solid white;
-  outline-offset: 2px;
+
+.profile-dropdown-user {
+  display: flex;
+  flex-direction: column;
+
+  padding: 14px;
+
+  border-bottom:
+    1px solid
+    var(--color-border);
 }
-/* Reduce content padding and profile text while keeping topbar sign-out accessible. */
-@media (max-width: 650px) {
-  .admin-content {
-    padding: 18px 12px;
-  }
-  .topbar {
-    padding: 0 12px;
-    gap: 8px;
-  }
-  .topbar-title {
-    font-size: 11px;
-  }
-  .topbar-profile > span {
-    display: none;
-  }
-  .topbar-actions {
-    gap: 6px;
+
+.profile-dropdown-user strong {
+  color:
+    var(--color-navy-950);
+
+  font-size: 12px;
+}
+
+.profile-dropdown-user span {
+  overflow: hidden;
+
+  margin-top: 3px;
+
+  color:
+    var(--color-text-muted);
+
+  font-size: 9px;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.profile-dropdown-user small {
+  margin-top: 7px;
+
+  color:
+    var(--color-blue-700);
+
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.profile-dropdown-actions {
+  display: flex;
+  flex-direction: column;
+
+  padding: 6px;
+}
+
+.profile-dropdown-actions button {
+  width: 100%;
+  min-height: 38px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 0 10px;
+
+  border: none;
+
+  border-radius: 6px;
+
+  background: transparent;
+
+  color:
+    var(--color-navy-950);
+
+  text-align: left;
+
+  font-size: 10px;
+
+  cursor: pointer;
+}
+
+.profile-dropdown-actions button:hover {
+  background: #f4f8fb;
+}
+
+.profile-dropdown-actions
+.profile-dropdown-signout {
+  color: #c03f3f;
+}
+
+@media (
+  max-width: 650px
+) {
+  .profile-dropdown {
+    width:
+      min(
+        240px,
+        calc(
+          100vw -
+          var(--sidebar-width) -
+          28px
+        )
+      );
   }
 }
+.sidebar { overflow-y: auto; }
+button:disabled { cursor: not-allowed; }
+@media (max-width: 900px) { .admin-layout { --sidebar-width: 82px; } }
+@media (max-width: 650px) { .admin-content { padding: 18px 12px; } .topbar { padding: 0 12px; gap: 10px; } .topbar-search { min-width: 0; } .topbar-profile > span { display: none; } }
+
+.admin-main, .dashboard-grid > * { min-width: 0; }

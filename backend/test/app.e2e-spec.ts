@@ -10,24 +10,21 @@ import { join, resolve, sep } from 'node:path';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { EncryptionService } from '../src/security/encryption.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import type { EncryptedValue } from '../src/security/encryption.service';
-
-describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () => {
+describe('Authentication (real SQLite, Argon2id, JWT)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let testDirectory: string;
   let token: string;
   let userId: string;
-  let encrypted: EncryptedValue;
   const password = randomBytes(24).toString('base64');
   const replacementPassword = randomBytes(24).toString('base64');
   const jwtSecret = randomBytes(32).toString('base64');
-  const aesKey = randomBytes(32).toString('base64');
   const settings: Record<string, string | undefined> = {
     JWT_SECRET: jwtSecret,
     JWT_EXPIRES_IN_SECONDS: '3600',
-    AES_MASTER_KEY: aesKey,
+    AES_MASTER_KEY: randomBytes(32).toString('base64'),
   };
   const registration = {
     email: 'demo@example.test',
@@ -36,7 +33,6 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
     lastName: 'User',
     password,
   };
-
   beforeAll(async () => {
     // A new database inside this project keeps every real account untouched.
     testDirectory = mkdtempSync(join(process.cwd(), '.test-data-'));
@@ -81,7 +77,6 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
     await app.init();
     prisma = app.get(PrismaService);
   }, 30000);
-
   afterAll(async () => {
     if (app) await app.close();
     if (testDirectory) {
@@ -96,7 +91,6 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
       rmSync(target, { recursive: true, force: true });
     }
   });
-
   it('registers an account with an Argon2id hash and excludes the hash from the response', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/auth/register')
@@ -109,7 +103,6 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
     expect(await argon2.verify(user.passwordHash, password)).toBe(true);
     expect(user.passwordHash).not.toBe(password);
   });
-
   it('rejects duplicate accounts and attempts to register an elevated role', async () => {
     await request(app.getHttpServer())
       .post('/api/auth/register')
@@ -120,7 +113,6 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
       .send({ ...registration, role: 'ADMIN' })
       .expect(400);
   });
-
   it('rejects incorrect passwords and inactive accounts', async () => {
     await request(app.getHttpServer())
       .post('/api/auth/login')
@@ -139,7 +131,6 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
       data: { status: 'ACTIVE' },
     });
   });
-
   it('logs in by normalized username and email, returns a signed JWT and restores the current user', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/auth/login')
@@ -147,7 +138,9 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
       .expect(200);
     token = response.body.accessToken as string;
     expect(
-      new JwtService({ secret: jwtSecret }).verify<{ sub: string }>(token).sub,
+      new JwtService({ secret: jwtSecret }).verify<{
+        sub: string;
+      }>(token).sub,
     ).toBe(userId);
     expect(response.body.user).not.toHaveProperty('passwordHash');
     await request(app.getHttpServer())
@@ -161,7 +154,6 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
     expect(current.body.user.id).toBe(userId);
     expect(current.body.user).not.toHaveProperty('passwordHash');
   });
-
   it('rejects missing, expired and forged tokens on protected endpoints', async () => {
     const expired = new JwtService({ secret: jwtSecret }).sign(
       { sub: userId },
@@ -170,11 +162,7 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
     const forged = new JwtService({
       secret: randomBytes(32).toString('base64'),
     }).sign({ sub: userId });
-    for (const endpoint of [
-      '/api/auth/me',
-      '/api/security/encrypt-demo',
-      '/api/security/decrypt-demo',
-    ]) {
+    for (const endpoint of ['/api/auth/me']) {
       const method = endpoint.endsWith('/me') ? 'get' : 'post';
       await request(app.getHttpServer())[method](endpoint).expect(401);
       for (const invalid of [expired, forged]) {
@@ -185,106 +173,7 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
       }
     }
   });
-
-  it('encrypts with a random IV and never returns the master key', async () => {
-    const first = await request(app.getHttpServer())
-      .post('/api/security/encrypt-demo')
-      .auth(token, { type: 'bearer' })
-      .send({ text: 'Condotel \u{1f510}' })
-      .expect(200);
-    const second = await request(app.getHttpServer())
-      .post('/api/security/encrypt-demo')
-      .auth(token, { type: 'bearer' })
-      .send({ text: 'Condotel \u{1f510}' })
-      .expect(200);
-    encrypted = first.body as EncryptedValue;
-    expect(Object.keys(encrypted).sort()).toEqual([
-      'authTag',
-      'ciphertext',
-      'iv',
-    ]);
-    expect(Buffer.from(encrypted.iv, 'base64')).toHaveLength(12);
-    expect(Buffer.from(encrypted.authTag, 'base64')).toHaveLength(16);
-    expect(second.body.iv).not.toBe(encrypted.iv);
-    expect(JSON.stringify(encrypted)).not.toContain(aesKey);
-  });
-
-  it('decrypts the original UTF-8 text and accepts an authenticated empty string', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/api/security/decrypt-demo')
-      .auth(token, { type: 'bearer' })
-      .send(encrypted)
-      .expect(200);
-    expect(response.body).toEqual({ text: 'Condotel \u{1f510}' });
-    const empty = await request(app.getHttpServer())
-      .post('/api/security/encrypt-demo')
-      .auth(token, { type: 'bearer' })
-      .send({ text: '' })
-      .expect(200);
-    const decrypted = await request(app.getHttpServer())
-      .post('/api/security/decrypt-demo')
-      .auth(token, { type: 'bearer' })
-      .send(empty.body)
-      .expect(200);
-    expect(decrypted.body).toEqual({ text: '' });
-  });
-
-  it.each(['ciphertext', 'iv', 'authTag'] as const)(
-    'rejects tampering with %s without returning plaintext',
-    async (field) => {
-      const bytes = Buffer.from(encrypted[field], 'base64');
-      bytes[0] ^= 1;
-      const response = await request(app.getHttpServer())
-        .post('/api/security/decrypt-demo')
-        .auth(token, { type: 'bearer' })
-        .send({ ...encrypted, [field]: bytes.toString('base64') })
-        .expect(400);
-      expect(response.body).not.toHaveProperty('text');
-    },
-  );
-
-  it('validates request types, sizes and unknown fields', async () => {
-    for (const payload of [
-      { text: 123 },
-      { text: 'x'.repeat(4097) },
-      { text: 'demo', masterKey: 'ignored' },
-    ]) {
-      await request(app.getHttpServer())
-        .post('/api/security/encrypt-demo')
-        .auth(token, { type: 'bearer' })
-        .send(payload)
-        .expect(400);
-    }
-    await request(app.getHttpServer())
-      .post('/api/security/decrypt-demo')
-      .auth(token, { type: 'bearer' })
-      .send({ ...encrypted, iv: 'invalid' })
-      .expect(400);
-  });
-
-  it('reports missing AES configuration without affecting login', async () => {
-    settings.AES_MASTER_KEY = undefined;
-    try {
-      await request(app.getHttpServer())
-        .post('/api/security/encrypt-demo')
-        .auth(token, { type: 'bearer' })
-        .send({ text: 'demo' })
-        .expect(503);
-      await request(app.getHttpServer())
-        .post('/api/security/decrypt-demo')
-        .auth(token, { type: 'bearer' })
-        .send(encrypted)
-        .expect(503);
-      await request(app.getHttpServer())
-        .post('/api/auth/login')
-        .send({ identifier: registration.email, password })
-        .expect(200);
-    } finally {
-      settings.AES_MASTER_KEY = aesKey;
-    }
-  });
-
-  it('rechecks account status and required password changes for existing tokens', async () => {
+  it('rechecks account status for existing tokens', async () => {
     await prisma.user.update({
       where: { id: userId },
       data: { status: 'SUSPENDED' },
@@ -295,16 +184,19 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
       .expect(401);
     await prisma.user.update({
       where: { id: userId },
-      data: { status: 'ACTIVE', mustChangePassword: true },
+      data: { status: 'ACTIVE' },
     });
-    await request(app.getHttpServer())
-      .post('/api/security/encrypt-demo')
-      .auth(token, { type: 'bearer' })
-      .send({ text: 'demo' })
-      .expect(403);
   });
-
-  it('changes the password using Argon2id and unlocks the demo', async () => {
+  it('changes the password using Argon2id and clears the password-change requirement', async () => {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { mustChangePassword: true },
+    });
+    const current = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(current.body.user.mustChangePassword).toBe(true);
     await request(app.getHttpServer())
       .post('/api/auth/change-password')
       .auth(token, { type: 'bearer' })
@@ -335,13 +227,7 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
       .post('/api/auth/login')
       .send({ identifier: registration.email, password: replacementPassword })
       .expect(200);
-    await request(app.getHttpServer())
-      .post('/api/security/encrypt-demo')
-      .auth(token, { type: 'bearer' })
-      .send({ text: 'demo' })
-      .expect(200);
   });
-
   it('has no business API routes', async () => {
     for (const route of [
       'guests',
@@ -355,7 +241,6 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
       'notifications',
       'users',
       'nfc',
-      'devices',
       'dashboard',
     ]) {
       await request(app.getHttpServer())
@@ -363,5 +248,128 @@ describe('Authentication and AES demo (real SQLite, Argon2id, JWT and AES)', () 
         .auth(token, { type: 'bearer' })
         .expect(404);
     }
+  });
+
+  it('restricts device registration and listing to authenticated administrators', async () => {
+    await request(app.getHttpServer()).get('/api/devices').expect(401);
+    await request(app.getHttpServer())
+      .post('/api/devices')
+      .send({ deviceName: 'Door' })
+      .expect(401);
+    for (const role of ['CUSTOMER', 'STAFF'] as const) {
+      await prisma.user.update({ where: { id: userId }, data: { role } });
+      await request(app.getHttpServer())
+        .get('/api/devices')
+        .auth(token, { type: 'bearer' })
+        .expect(403);
+      await request(app.getHttpServer())
+        .post('/api/devices')
+        .auth(token, { type: 'bearer' })
+        .send({ deviceName: 'Door' })
+        .expect(403);
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: 'ADMIN', mustChangePassword: true },
+    });
+    await request(app.getHttpServer())
+      .post('/api/devices')
+      .auth(token, { type: 'bearer' })
+      .send({ deviceName: 'Door' })
+      .expect(403);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { mustChangePassword: false },
+    });
+    expect(await prisma.device.count()).toBe(0);
+  });
+
+  it('persists only encrypted device secrets and returns the provisioning secret once', async () => {
+    const first = await request(app.getHttpServer())
+      .post('/api/devices')
+      .auth(token, { type: 'bearer' })
+      .send({ deviceName: '  Room 101 Door  ' })
+      .expect(201);
+    expect(first.headers['cache-control']).toBe('no-store');
+    expect(Buffer.from(first.body.deviceSecret, 'base64')).toHaveLength(32);
+    expect(first.body.device.deviceName).toBe('Room 101 Door');
+    expect(Object.keys(first.body.device).sort()).toEqual([
+      'createdAt',
+      'deviceId',
+      'deviceName',
+    ]);
+    const stored = await prisma.device.findUniqueOrThrow({
+      where: { deviceId: first.body.device.deviceId },
+    });
+    expect(JSON.stringify(stored)).not.toContain(first.body.deviceSecret);
+    expect(Buffer.from(stored.deviceKeyIv, 'base64')).toHaveLength(12);
+    expect(Buffer.from(stored.deviceKeyAuthTag, 'base64')).toHaveLength(16);
+    expect(
+      app
+        .get(EncryptionService)
+        .decrypt({
+          ciphertext: stored.deviceKeyCiphertext,
+          iv: stored.deviceKeyIv,
+          authTag: stored.deviceKeyAuthTag,
+        }),
+    ).toBe(first.body.deviceSecret);
+    const second = await request(app.getHttpServer())
+      .post('/api/devices')
+      .auth(token, { type: 'bearer' })
+      .send({ deviceName: 'Room 102 Door' })
+      .expect(201);
+    expect(second.body.deviceSecret).not.toBe(first.body.deviceSecret);
+    const storedSecond = await prisma.device.findUniqueOrThrow({
+      where: { deviceId: second.body.device.deviceId },
+    });
+    expect(storedSecond.deviceKeyIv).not.toBe(stored.deviceKeyIv);
+    const list = await request(app.getHttpServer())
+      .get('/api/devices')
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(list.headers['cache-control']).toBe('no-store');
+    expect(list.body).toHaveLength(2);
+    for (const device of list.body)
+      expect(Object.keys(device).sort()).toEqual([
+        'createdAt',
+        'deviceId',
+        'deviceName',
+      ]);
+    expect(JSON.stringify(list.body)).not.toContain(first.body.deviceSecret);
+  });
+
+  it('rejects invalid or duplicate names and fails safely without a usable master key', async () => {
+    for (const payload of [
+      { deviceName: '' },
+      { deviceName: '   ' },
+      { deviceName: 12 },
+      { deviceName: 'x'.repeat(101) },
+      { deviceName: 'Door', deviceSecret: 'client-key' },
+    ]) {
+      await request(app.getHttpServer())
+        .post('/api/devices')
+        .auth(token, { type: 'bearer' })
+        .send(payload)
+        .expect(400);
+    }
+    await request(app.getHttpServer())
+      .post('/api/devices')
+      .auth(token, { type: 'bearer' })
+      .send({ deviceName: 'Room 101 Door' })
+      .expect(409);
+    const masterKey = settings.AES_MASTER_KEY;
+    try {
+      for (const invalidKey of [undefined, 'invalid']) {
+        settings.AES_MASTER_KEY = invalidKey;
+        await request(app.getHttpServer())
+          .post('/api/devices')
+          .auth(token, { type: 'bearer' })
+          .send({ deviceName: 'Unavailable' })
+          .expect(503);
+      }
+    } finally {
+      settings.AES_MASTER_KEY = masterKey;
+    }
+    expect(await prisma.device.count()).toBe(2);
   });
 });

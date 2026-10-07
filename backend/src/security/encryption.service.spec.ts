@@ -1,9 +1,9 @@
-// Verifies encryption interoperability, integrity checks and configuration validation with isolated keys.
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createDecipheriv, randomBytes } from 'node:crypto';
 import { EncryptionService } from './encryption.service';
 import type { EncryptedValue } from './encryption.service';
+import { SecurityModule } from './security.module';
 
 describe('EncryptionService', () => {
   let module: TestingModule;
@@ -15,16 +15,11 @@ describe('EncryptionService', () => {
   beforeEach(async () => {
     // Isolated random test material; never read the application's environment key.
     testKey = randomBytes(32).toString('base64');
-    getConfig
-      .mockReset()
-      .mockImplementation((name: string) =>
-        name === 'AES_MASTER_KEY' ? testKey : undefined,
-      );
+    getConfig.mockReset().mockImplementation((name: string) =>
+      name === 'AES_MASTER_KEY' ? testKey : undefined,
+    );
     module = await Test.createTestingModule({
-      providers: [
-        EncryptionService,
-        { provide: ConfigService, useValue: { get: getConfig } },
-      ],
+      imports: [SecurityModule],
     })
       .overrideProvider(ConfigService)
       .useValue({ get: getConfig })
@@ -36,29 +31,24 @@ describe('EncryptionService', () => {
     await module.close();
   });
 
-  // Flip a bit without changing encoding or length, isolating authentication from format validation.
   function tamper(base64: string): string {
     const bytes = Buffer.from(base64, 'base64');
     bytes[0] ^= 1;
     return bytes.toString('base64');
   }
 
-  it('round-trips a generated sample key without storing its plaintext', () => {
-    const sampleKey = service.generateRandomKey();
-    const encrypted = service.encrypt(sampleKey);
+  it('round-trips a generated device key without storing its plaintext', () => {
+    const deviceKey = service.generateRandomKey();
+    const encrypted = service.encrypt(deviceKey);
 
-    expect(Object.keys(encrypted).sort()).toEqual([
-      'authTag',
-      'ciphertext',
-      'iv',
-    ]);
-    expect(encrypted.ciphertext).not.toBe(sampleKey);
-    expect(service.decrypt(encrypted)).toBe(sampleKey);
+    expect(Object.keys(encrypted).sort()).toEqual(['authTag', 'ciphertext', 'iv']);
+    expect(encrypted.ciphertext).not.toBe(deviceKey);
+    expect(service.decrypt(encrypted)).toBe(deviceKey);
     expect(getConfig).toHaveBeenCalledWith('AES_MASTER_KEY');
   });
 
   it('uses AES-256-GCM with a 12-byte IV and 16-byte tag', () => {
-    const encrypted = service.encrypt('sample key material');
+    const encrypted = service.encrypt('device key material');
     expect(Buffer.from(encrypted.iv, 'base64')).toHaveLength(12);
     expect(Buffer.from(encrypted.authTag, 'base64')).toHaveLength(16);
     for (const value of Object.values(encrypted)) {
@@ -73,12 +63,10 @@ describe('EncryptionService', () => {
       { authTagLength: 16 },
     );
     decipher.setAuthTag(Buffer.from(encrypted.authTag, 'base64'));
-    expect(
-      Buffer.concat([
-        decipher.update(Buffer.from(encrypted.ciphertext, 'base64')),
-        decipher.final(),
-      ]).toString('utf8'),
-    ).toBe('sample key material');
+    expect(Buffer.concat([
+      decipher.update(Buffer.from(encrypted.ciphertext, 'base64')),
+      decipher.final(),
+    ]).toString('utf8')).toBe('device key material');
   });
 
   it('uses a different random IV and ciphertext for repeated plaintext', () => {
@@ -93,14 +81,14 @@ describe('EncryptionService', () => {
   it.each(['ciphertext', 'iv', 'authTag'] as const)(
     'rejects a tampered %s even with valid Base64 and length',
     (field) => {
-      const encrypted = service.encrypt('secret sample material');
+      const encrypted = service.encrypt('secret device material');
       encrypted[field] = tamper(encrypted[field]);
       expect(() => service.decrypt(encrypted)).toThrow(decryptionError);
     },
   );
 
   it('rejects a different valid 32-byte master key', () => {
-    const encrypted = service.encrypt('secret sample material');
+    const encrypted = service.encrypt('secret device material');
     getConfig.mockReturnValue(randomBytes(32).toString('base64'));
     expect(() => service.decrypt(encrypted)).toThrow(decryptionError);
   });
@@ -113,9 +101,8 @@ describe('EncryptionService', () => {
       if (plaintext === '') {
         expect(encrypted.ciphertext).toBe('');
         expect(Buffer.from(encrypted.authTag, 'base64')).toHaveLength(16);
-        expect(() => service.decrypt({ ...encrypted, authTag: '' })).toThrow(
-          decryptionError,
-        );
+        expect(() => service.decrypt({ ...encrypted, authTag: '' }))
+          .toThrow(decryptionError);
       }
     },
   );
@@ -125,9 +112,8 @@ describe('EncryptionService', () => {
     (field) => {
       const encrypted = service.encrypt('private input');
       for (const invalid of ['not!base64', ' ', 'AB==', undefined, null, 12]) {
-        expect(() =>
-          service.decrypt({ ...encrypted, [field]: invalid }),
-        ).toThrow(new Error(decryptionError));
+        expect(() => service.decrypt({ ...encrypted, [field]: invalid }))
+          .toThrow(new Error(decryptionError));
       }
     },
   );
@@ -141,63 +127,41 @@ describe('EncryptionService', () => {
   it.each([0, 1, 4, 12, 15, 17])('rejects a %i-byte tag', (length) => {
     const encrypted = service.encrypt('secret');
     encrypted.authTag = Buffer.from(encrypted.authTag, 'base64')
-      .subarray(0, length)
-      .toString('base64');
+      .subarray(0, length).toString('base64');
     if (length > 16) encrypted.authTag = randomBytes(length).toString('base64');
     expect(() => service.decrypt(encrypted)).toThrow(decryptionError);
   });
 
   it('rejects missing payloads and truncated ciphertext', () => {
     for (const invalid of [undefined, null, {}]) {
-      expect(() => service.decrypt(invalid as EncryptedValue)).toThrow(
-        decryptionError,
-      );
+      expect(() => service.decrypt(invalid as EncryptedValue))
+        .toThrow(decryptionError);
     }
     const encrypted = service.encrypt('secret');
-    expect(() => service.decrypt({ ...encrypted, ciphertext: '' })).toThrow(
-      decryptionError,
-    );
+    expect(() => service.decrypt({ ...encrypted, ciphertext: '' }))
+      .toThrow(decryptionError);
     encrypted.ciphertext = Buffer.from(encrypted.ciphertext, 'base64')
-      .subarray(1)
-      .toString('base64');
+      .subarray(1).toString('base64');
     expect(() => service.decrypt(encrypted)).toThrow(decryptionError);
   });
 
-  it.each([undefined, null, ''])(
-    'rejects a missing master key (%j) on use',
-    (key) => {
-      const encrypted = service.encrypt('secret');
-      getConfig.mockReturnValue(key);
-      expect(
-        () => new EncryptionService(module.get(ConfigService)),
-      ).not.toThrow();
-      expect(() => service.encrypt('secret')).toThrow(
-        'AES master key is not configured.',
-      );
-      expect(() => service.decrypt(encrypted)).toThrow(
-        'AES master key is not configured.',
-      );
-    },
-  );
+  it.each([undefined, null, ''])('rejects a missing master key (%j) on use', (key) => {
+    const encrypted = service.encrypt('secret');
+    getConfig.mockReturnValue(key);
+    expect(() => new EncryptionService(module.get(ConfigService))).not.toThrow();
+    expect(() => service.encrypt('secret')).toThrow('AES master key is not configured.');
+    expect(() => service.decrypt(encrypted)).toThrow('AES master key is not configured.');
+  });
 
   it('strictly rejects malformed Base64 master keys without echoing them', () => {
     const encrypted = service.encrypt('secret');
-    // Alter unused padding bits: the bytes can still decode, but the Base64 representation is not canonical.
-    const noncanonical =
-      testKey.slice(0, -2) +
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'[
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'.indexOf(
-          testKey.at(-2)!,
-        ) + 1
-      ] +
-      '=';
+    const noncanonical = testKey.slice(0, -2)
+      + 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'[
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'.indexOf(testKey.at(-2)!) + 1
+      ] + '=';
     for (const invalid of [
-      'invalid!secret',
-      `${testKey}\n`,
-      testKey.slice(0, -1),
-      `${testKey}=`,
-      noncanonical,
-      123,
+      'invalid!secret', `${testKey}\n`, testKey.slice(0, -1),
+      `${testKey}=`, noncanonical, 123,
     ]) {
       getConfig.mockReturnValue(invalid);
       const error = new Error('AES master key must be valid canonical Base64.');
@@ -214,7 +178,7 @@ describe('EncryptionService', () => {
     expect(() => service.decrypt(encrypted)).toThrow(error);
   });
 
-  it('generates independent 32-byte Base64 sample keys without reading configuration', () => {
+  it('generates independent 32-byte Base64 device keys without reading configuration', () => {
     getConfig.mockReturnValue(undefined);
     const first = service.generateRandomKey();
     const second = service.generateRandomKey();
@@ -226,8 +190,7 @@ describe('EncryptionService', () => {
   });
 
   it('rejects non-string plaintext without coercing it', () => {
-    expect(() => service.encrypt(null as unknown as string)).toThrow(
-      'Encryption plaintext must be a string.',
-    );
+    expect(() => service.encrypt(null as unknown as string))
+      .toThrow('Encryption plaintext must be a string.');
   });
 });

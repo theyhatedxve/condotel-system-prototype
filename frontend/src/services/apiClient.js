@@ -1,5 +1,3 @@
-// Shared JSON API client; the request interceptor attaches the current bearer token.
-// Response errors are handled by callers rather than a global logout interceptor.
 import axios from 'axios';
 
 import { getAccessToken } from '../features/auth/authStorage';

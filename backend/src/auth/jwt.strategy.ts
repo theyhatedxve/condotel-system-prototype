@@ -1,7 +1,7 @@
 // Verifies bearer-token signatures and expiration, then resolves the current request user.
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PassportStrategy } from '@nestjs/passport';
+import { AuthGuard, PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from './auth.service';
 
@@ -27,3 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return this.auth.findAuthenticatedUser(payload.sub);
   }
 }
+
+// Guard and strategy share the same Passport authentication boundary.
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {}

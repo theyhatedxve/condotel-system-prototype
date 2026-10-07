@@ -1,72 +1,108 @@
-// Shares the authenticated user and session actions across the route tree.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
-import { getCurrentUser, loginUser } from "./authApi";
+import {
+  getCurrentUser,
+  loginUser,
+} from './authApi';
 
 import {
   clearAccessToken,
   getAccessToken,
   saveAccessToken,
-} from "./authStorage";
+} from './authStorage';
 
-import { AuthContext } from "./auth-context";
+import {
+  AuthContext,
+} from './useAuth';
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+export function AuthProvider({
+  children,
+}) {
+  const [
+    user,
+    setUser,
+  ] = useState(null);
 
-  // A stored token requires a server check; no token means initialization is already complete.
-  const [isLoading, setIsLoading] = useState(() => Boolean(getAccessToken()));
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(
+    () =>
+      Boolean(
+        getAccessToken(),
+      ),
+  );
 
-  // Reload account flags after changes such as replacing a temporary password.
   const refreshUser = useCallback(async () => {
     const result = await getCurrentUser();
-
     setUser(result.user);
-
     return result.user;
   }, []);
 
-  const login = useCallback(async ({ identifier, password, rememberMe }) => {
-    const result = await loginUser({
-      identifier,
-      password,
-    });
+  const login =
+    useCallback(
+      async ({
+        identifier,
+        password,
+        rememberMe,
+      }) => {
+        const result =
+          await loginUser({
+            identifier,
+            password,
+          });
 
-    // Store the issued token only after the backend accepts the credentials.
-    saveAccessToken(result.accessToken, rememberMe);
+        saveAccessToken(
+          result.accessToken,
+          rememberMe,
+        );
 
-    setUser(result.user);
+        setUser(
+          result.user,
+        );
 
-    return result.user;
-  }, []);
+        return result.user;
+      },
+      [],
+    );
 
-  const logout = useCallback(() => {
-    // Clear storage before updating the UI so later requests cannot reuse this token.
-    // This is local sign-out; it does not revoke the JWT on the server.
-    clearAccessToken();
+  const logout =
+    useCallback(
+      () => {
+        clearAccessToken();
 
-    setUser(null);
-  }, []);
+        setUser(null);
+      },
+      [],
+    );
 
   // Validate a stored token with the backend before treating the session as authenticated.
   // ProtectedRoute waits for this initialization before deciding whether to redirect.
   useEffect(() => {
-    const token = getAccessToken();
+    const token =
+      getAccessToken();
 
     if (!token) {
       return;
     }
 
-    let cancelled = false;
+    let cancelled =
+      false;
 
     getCurrentUser()
       .then((result) => {
         if (!cancelled) {
-          setUser(result.user);
+          setUser(
+            result.user,
+          );
         }
       })
       .catch(() => {
-        // Any failed startup check discards the stored session, including network failures.
         clearAccessToken();
 
         if (!cancelled) {
@@ -75,32 +111,47 @@ export function AuthProvider({ children }) {
       })
       .finally(() => {
         if (!cancelled) {
-          setIsLoading(false);
+          setIsLoading(
+            false,
+          );
         }
       });
 
-    // Ignore late user/loading updates after cleanup; the HTTP request itself continues.
     return () => {
-      cancelled = true;
+      cancelled =
+        true;
     };
   }, []);
 
-  const value = useMemo(
-    () => ({
-      user,
+  const value =
+    useMemo(
+      () => ({
+        user,
 
-      isLoading,
+        isLoading,
 
-      isAuthenticated: Boolean(user),
+        isAuthenticated:
+          Boolean(user),
 
-      login,
+        login,
 
-      logout,
+        logout,
+        refreshUser,
+      }),
+      [
+        user,
+        isLoading,
+        login,
+        logout,
+        refreshUser,
+      ],
+    );
 
-      refreshUser,
-    }),
-    [user, isLoading, login, logout, refreshUser],
+  return (
+    <AuthContext.Provider
+      value={value}
+    >
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

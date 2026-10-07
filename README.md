@@ -1,119 +1,56 @@
-# Condotel Security Prototype
+# Condotel System with NFC Card and Payment
 
-A reduced demonstration of the **Condotel System with NFC Card and Payment** project. The existing Condotel interface now demonstrates real authentication and AES encryption. Reservation, payment, NFC/device management and other business workflows have been removed.
+This duplicated project preserves the existing Condotel interface with small static presentation values. Rooms, reservations and guests are read-only. User management, payments, transactions, reports, settings and NFC use the shared placeholder page. Device Management provides administrator-only door-device registration. Business controls, search and notifications are disabled.
 
-The application has 33 source files under `backend/src` and `frontend/src` (including CSS and the AES tests, excluding generated Prisma code), plus one integration test in `backend/test`.
+Authentication uses NestJS, Prisma/SQLite, Argon2id and signed JWTs. Login, session restoration, logout and password changes remain functional. The topbar account menu displays the signed-in identity. Every active account can view the shared presentation layout; it does not grant business administration privileges because those operations have been removed.
+
+AES-256-GCM protects registered door-device secrets in SQLite. The backend master key is never sent to the frontend. There is no general-purpose encryption/decryption HTTP endpoint.
 
 ## Run locally
 
-Use Node.js 24 and npm. Run commands from this project directory, which contains `backend` and `frontend`.
+Use separate terminals in backend and frontend. Install each package with npm ci when dependencies are not installed.
 
-1. In `backend`, run `npm ci`.
-2. For a fresh checkout, copy `.env.example` to `.env`. Preserve an existing local `.env`.
-3. Set separate random values for `JWT_SECRET` and `AES_MASTER_KEY` in **backend/.env**. Generate each independently:
-
-   ```powershell
-   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
-   ```
-
-   AES_MASTER_KEY must be canonical Base64 encoding of exactly 32 bytes. Never place it in frontend environment variables or source. The supplied example contains no secrets. Login can run without AES configured; encryption returns a configuration error until the key is set.
-
-4. From `backend`, apply migrations and generate Prisma:
-
-   ```powershell
-   # Create only a missing, empty SQLite file; never overwrite an existing database.
-   if (-not (Test-Path -LiteralPath 'prisma/dev.db')) {
-     New-Item -ItemType File -Path 'prisma/dev.db' | Out-Null
-   }
-   npx prisma migrate deploy --config prisma7.config.ts
-   npx prisma generate --config prisma7.config.ts
-   npm run start:dev
-   ```
-
-   This assumes the example DATABASE_URL, `file:./prisma/dev.db`. The explicit empty-file creation supports the installed SQLite schema engine. Existing accounts survive the reduction migration; no reset is needed.
-
-5. In a second terminal, from `frontend`:
-
-   ```powershell
-   npm ci
-   npm run dev
-   ```
-
-   Open http://localhost:5173. The API defaults to http://localhost:3000/api. Optional `frontend/.env` configuration is documented in `.env.example`. If changing the frontend origin, also update backend `FRONTEND_URL`.
-
-## Sign in
-
-Use an existing account's email/username and password. All eight accounts in this duplicated development database were preserved, including their Argon2id hashes.
-
-A fresh database can create one demo account through the retained registration endpoint. With the backend running, enter your own password at the prompt; no default password is embedded in source:
+In backend, use .env.example as the template for your local .env without overwriting an existing file. Set JWT_SECRET to a strong independently generated random secret. Set AES_MASTER_KEY to canonical Base64 encoding of exactly 32 random bytes. Generate each secret separately using:
 
 ```powershell
-$demoEmail = Read-Host 'Demo email'
-$demoSecurePassword = Read-Host 'Demo password (8-128 characters)' -AsSecureString
-$demoCredential = [System.Net.NetworkCredential]::new('', $demoSecurePassword)
-$demoBody = @{
-  email = $demoEmail
-  password = $demoCredential.Password
-  firstName = 'Demo'
-  lastName = 'User'
-} | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/api/auth/register' -ContentType 'application/json' -Body $demoBody | Out-Null
-Remove-Variable demoBody, demoCredential, demoSecurePassword
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 ```
 
-Registration uses the existing CUSTOMER role default. All active roles access the same demonstration dashboard; there is no role management. Accounts marked for a temporary-password change must change it in Account before accessing the AES demo.
+Store secrets only in backend/.env, never in frontend variables or source control. AES validates the key when encryption/decryption is called; login does not require an AES key. A private AES master key has been configured in the current ignored backend .env. Preserve and securely back up this key; replacing or losing it prevents decrypting previously registered device secrets. Unit tests use isolated random keys.
 
-## Demonstration
+The existing database has already been migrated. For a fresh installation, create an empty backend/prisma/dev.db only if absent (the installed SQLite engine requires an existing file), then run in backend:
 
-1. Sign in. NestJS verifies the stored Argon2id hash and issues a signed JWT.
-2. The protected Condotel dashboard displays the original sidebar, topbar, theme and informational cards.
-3. Enter sample text and choose **Encrypt text**. The server returns Base64 ciphertext, a fresh 12-byte IV and a 16-byte authentication tag.
-4. Choose **Decrypt text** to recover the original UTF-8 text.
-5. Change a ciphertext, IV or tag value and decrypt again. Authentication fails without returning plaintext. Encrypt again to restore a valid set.
-6. Change a password in Account to demonstrate creation of a new Argon2id hash.
-7. Sign out to clear the browser's session. Remember me uses localStorage; otherwise the JWT uses sessionStorage.
+```powershell
+npx prisma migrate deploy --config prisma7.config.ts
+npx prisma generate --config prisma7.config.ts
+npm run start:dev
+```
 
-The AES master key never leaves the backend. Demo inputs and outputs are not stored in SQLite. Changing the master key makes previous ciphertext undecryptable. JWTs expire after the configured lifetime (default one hour). Sign-out clears browser storage; this minimal stateless implementation does not maintain a server-side token revocation list.
+The migration removes business tables. Use this database only in the duplicated project. It retains User accounts; do not reset an existing database.
 
-## API
+Run in frontend:
 
-All routes have the `/api` prefix.
+```powershell
+npm run dev
+```
 
-| Method | Route | Access |
-| --- | --- | --- |
-| POST | /auth/register | Public; creates a normal account |
-| POST | /auth/login | Public; Argon2id verification |
-| GET | /auth/me | JWT required |
-| POST | /auth/change-password | JWT and current password required |
-| POST | /security/encrypt-demo | JWT; temporary password must be changed |
-| POST | /security/decrypt-demo | JWT; temporary password must be changed |
+Defaults are http://localhost:5173 for the frontend and http://localhost:3000/api for the API. The optional frontend VITE_API_BASE_URL must include /api; backend FRONTEND_URL controls the permitted frontend origin.
 
-Encryption body: `{ "text": "Example" }` (maximum 4,096 characters). Decryption body contains `ciphertext`, `iv` and `authTag`. Unknown fields and invalid input are rejected.
+Use an existing account. There are no embedded default credentials. For a new account, POST /api/auth/register accepts email, password (8-128 characters), firstName and lastName, with optional username and phone. Account role/status are assigned by the backend. POST /api/auth/login accepts identifier (email or username) and password. GET /api/auth/me and POST /api/auth/change-password require Authorization: Bearer <token>; password change accepts currentPassword and newPassword.
 
 ## Checks
 
-From `backend`:
+Backend: npm run build, npm run lint, npm test -- --runInBand, npm run test:e2e.
+Frontend: npm run build, npm run lint.
 
-```powershell
-npm run build
-npm test -- --runInBand
-npm run test:e2e -- --runInBand
-npm run lint
-```
+The authentication integration tests create and remove an isolated SQLite database inside backend; they do not use real accounts. The existing eight account records were unchanged by cleanup. Browser checks used a separate temporary database.
 
-From `frontend`:
+See [CLEANUP.md](CLEANUP.md) for the complete inventory, deleted-file list, final source trees and verification results.
 
-```powershell
-npm run build
-npm run lint
-```
+## Register a door device
 
-The 36 AES unit tests cover round trips, key/IV/tag validation, randomness and tamper rejection. The 15 integration tests run the actual NestJS routes, Prisma/SQLite, Argon2id and JWT against a temporary database inside `backend`; they clean it up afterward and never alter the development accounts.
+Sign in as an administrator and open Device Management in the sidebar. Enter a unique device name and select Register Door Device. Save the generated device ID and secret securely for provisioning the controller, then dismiss the one-time display. The secret is not stored in browser storage and cannot be retrieved through the device list. Use HTTPS when running outside local development.
 
-## Database and source
+POST /api/devices accepts { "deviceName": "Room 101 Door" } and returns metadata plus the generated deviceSecret once. GET /api/devices returns metadata only. Both require an active administrator with a completed password-change requirement. Responses use Cache-Control: no-store. SQLite stores deviceKeyCiphertext, deviceKeyIv and deviceKeyAuthTag; no plaintext device secret is persisted.
 
-`User` is the only application model. Role/status fields remain for account compatibility. Migration history is retained so existing copies can be upgraded without resetting accounts; historical migrations reference the removed models, but the final schema and running application do not.
-
-`backend/src/auth` handles account creation, login, password changes and JWT validation. `backend/src/security` contains the unchanged AES algorithm and the two demo endpoints. `backend/src/prisma` supplies the SQLite client.
-
-`frontend/src/features/auth` handles login and session state. `frontend/src/features/dashboard` contains the AES and account demonstration. Shared layout, routing, API client and styles retain the Condotel appearance.
+Migration 20261007020000_register_door_devices adds only the Device table. Registration, provisioning output and listing are implemented; controller firmware, NFC-card authorization, request authentication, door unlocking, key rotation and secret recovery are outside this feature.

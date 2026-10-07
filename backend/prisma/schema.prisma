@@ -20,7 +20,7 @@ enum UserStatus {
   SUSPENDED
 }
 
-// Existing accounts and hashes survive the reduction; roles are display-only.
+// Account identity and password state used by authentication and the profile view.
 model User {
   id                 String     @id @default(cuid())
   email              String     @unique
@@ -39,4 +39,14 @@ model User {
   @@index([role])
   @@index([status])
   @@index([lastName, firstName])
+}
+
+// Only encrypted device secrets are persisted; provisioning returns plaintext once.
+model Device {
+  deviceId            String   @id @default(cuid())
+  deviceName          String   @unique
+  deviceKeyCiphertext String
+  deviceKeyIv         String
+  deviceKeyAuthTag    String
+  createdAt           DateTime @default(now())
 }

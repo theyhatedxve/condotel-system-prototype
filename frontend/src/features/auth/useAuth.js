@@ -1,9 +1,6 @@
-// Gives components access to authentication and catches use outside AuthProvider.
-import { useContext } from 'react';
+import { createContext, useContext } from 'react';
 
-import {
-  AuthContext,
-} from './auth-context';
+export const AuthContext = createContext(null);
 
 export function useAuth() {
   const context =
