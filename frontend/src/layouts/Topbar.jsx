@@ -1,3 +1,4 @@
+// Displays the current user, account link and sign-out action in the shared shell.
 import { LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../features/auth/useAuth";

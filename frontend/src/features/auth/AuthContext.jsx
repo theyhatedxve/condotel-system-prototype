@@ -1,3 +1,4 @@
+// Shares the authenticated user and session actions across the route tree.
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getCurrentUser, loginUser } from "./authApi";
@@ -13,8 +14,10 @@ import { AuthContext } from "./auth-context";
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
+  // A stored token requires a server check; no token means initialization is already complete.
   const [isLoading, setIsLoading] = useState(() => Boolean(getAccessToken()));
 
+  // Reload account flags after changes such as replacing a temporary password.
   const refreshUser = useCallback(async () => {
     const result = await getCurrentUser();
 
@@ -29,6 +32,7 @@ export function AuthProvider({ children }) {
       password,
     });
 
+    // Store the issued token only after the backend accepts the credentials.
     saveAccessToken(result.accessToken, rememberMe);
 
     setUser(result.user);
@@ -37,6 +41,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Clear storage before updating the UI so later requests cannot reuse this token.
+    // This is local sign-out; it does not revoke the JWT on the server.
     clearAccessToken();
 
     setUser(null);
@@ -60,6 +66,7 @@ export function AuthProvider({ children }) {
         }
       })
       .catch(() => {
+        // Any failed startup check discards the stored session, including network failures.
         clearAccessToken();
 
         if (!cancelled) {
@@ -72,6 +79,7 @@ export function AuthProvider({ children }) {
         }
       });
 
+    // Ignore late user/loading updates after cleanup; the HTTP request itself continues.
     return () => {
       cancelled = true;
     };

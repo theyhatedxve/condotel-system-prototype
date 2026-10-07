@@ -1,3 +1,4 @@
+/* Shared shell: fixed sidebar, offset page content and a sticky topbar. */
 .admin-layout {
   min-height: 100vh;
 
@@ -223,6 +224,7 @@
   padding: 28px;
 }
 
+/* Scope the compact width to the layout so global theme tokens cannot override it. */
 @media (max-width: 900px) {
   .admin-layout {
     --sidebar-width: 82px;
@@ -253,6 +255,7 @@
   outline: 2px solid white;
   outline-offset: 2px;
 }
+/* Reduce content padding and profile text while keeping topbar sign-out accessible. */
 @media (max-width: 650px) {
   .admin-content {
     padding: 18px 12px;

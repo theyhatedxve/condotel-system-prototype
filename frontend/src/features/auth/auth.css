@@ -1,3 +1,4 @@
+/* Condotel branding and sign-in form use a split desktop layout. */
 .login-page {
   min-height: 100vh;
 
@@ -143,6 +144,7 @@
   color: rgba(255, 255, 255, 0.92);
 }
 
+/* Form sizing, input focus feedback and submission states. */
 .login-form-panel {
   display: flex;
 
@@ -327,6 +329,7 @@
   font-size: 12px;
 }
 
+/* Small screens show only the form, with the branding panel hidden. */
 @media (max-width: 860px) {
   .login-page {
     grid-template-columns: 1fr;

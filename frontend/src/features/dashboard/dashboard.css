@@ -1,3 +1,4 @@
+/* Dashboard headings, informational cards and shared panel styling. */
 .dashboard-header {
   margin-bottom: 24px;
 }
@@ -144,8 +145,10 @@
 }
 .dashboard-panel {
   margin-bottom: 22px;
+  /* Keep section headings below the sticky topbar after anchor navigation. */
   scroll-margin-top: 84px;
 }
+/* AES output and account forms share controls and feedback styles. */
 .demo-description {
   color: var(--color-text-muted);
   font-size: 13px;

@@ -1,3 +1,5 @@
+// Navigation for the System: one dashboard with security and account section links.
+// Logout updates shared auth state; ProtectedRoute then redirects to login.
 import {
   Building2,
   LayoutDashboard,

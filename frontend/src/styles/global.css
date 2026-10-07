@@ -1,3 +1,4 @@
+/* Global sizing, typography and shared session-loading presentation. */
 @import './variables.css';
 
 * {
@@ -45,6 +46,7 @@ a {
   text-decoration: none;
 }
 
+/* Used while protected routes wait for authentication initialization. */
 .loading-screen {
   min-height: 100vh;
 

@@ -1,3 +1,4 @@
+// Presents the Condotel sign-in form and enters the shared dashboard after authentication.
 import { useState } from "react";
 
 import { Building2, Eye, EyeOff, KeyRound, Mail, Waves } from "lucide-react";
@@ -25,10 +26,13 @@ export default function LoginPage() {
 
   const [submitting, setSubmitting] = useState(false);
 
+  // Wait for session restoration before redirecting an already authenticated visitor.
   if (!isLoading && isAuthenticated && user) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  // The backend verifies credentials with Argon2id; AuthContext stores the resulting JWT.
+  // Submitting disables the sign-in button until the request settles.
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -46,6 +50,7 @@ export default function LoginPage() {
         replace: true,
       });
     } catch (requestError) {
+      // Backend validation may return several messages; network failures use the fallback.
       const message =
         requestError.response?.data?.message ||
         "Unable to sign in. Please try again.";

@@ -1,3 +1,5 @@
+// Keeps the Condotel dashboard appearance while demonstrating backend encryption and account security.
+// AES keys and Argon2id password hashes never belong in this component's state.
 import { useEffect, useState } from "react";
 import { Fingerprint, KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useLocation } from "react-router-dom";
@@ -6,6 +8,7 @@ import { changeMyPassword } from "../auth/authApi";
 import apiClient from "../../services/apiClient";
 import "./dashboard.css";
 
+// Informational labels, not live configuration checks or business statistics.
 const cards = [
   {
     title: "Encryption",
@@ -37,6 +40,7 @@ const cards = [
   },
 ];
 
+// Normalize backend validation messages while providing a fallback for transport failures.
 function errorMessage(error) {
   const message =
     error.response?.data?.message ||
@@ -49,6 +53,7 @@ export default function DashboardPage() {
   const { hash } = useLocation();
   const [text, setText] = useState("Welcome to Condotel.");
   const [encrypted, setEncrypted] = useState(null);
+  // null means no verified result yet; an empty string is a valid decrypted result.
   const [decrypted, setDecrypted] = useState(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -58,6 +63,7 @@ export default function DashboardPage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
 
+  // Router hash links select sections on this page; scroll after the location updates.
   useEffect(() => {
     if (hash)
       document
@@ -65,6 +71,8 @@ export default function DashboardPage() {
         ?.scrollIntoView({ behavior: "smooth" });
   }, [hash]);
 
+  // Send only sample text; the backend supplies Base64 ciphertext, IV and authentication tag.
+  // A single busy state prevents overlapping encryption/decryption through the controls.
   async function encrypt(event) {
     event.preventDefault();
     setBusy("encrypt");
@@ -75,6 +83,7 @@ export default function DashboardPage() {
       const response = await apiClient.post("/security/encrypt-demo", { text });
       setEncrypted(response.data);
     } catch (requestError) {
+      // An invalid session exits the protected UI; other errors stay visible in the demo.
       if (requestError.response?.status === 401) logout();
       else setError(errorMessage(requestError));
     } finally {
@@ -82,6 +91,8 @@ export default function DashboardPage() {
     }
   }
 
+  // Submit all three editable values so the backend can authenticate them before returning plaintext.
+  // Clear a previous result first so a failed tamper check cannot leave stale plaintext visible.
   async function decrypt() {
     setBusy("decrypt");
     setError("");
@@ -100,6 +111,8 @@ export default function DashboardPage() {
     }
   }
 
+  // The backend checks the current password and hashes the replacement with Argon2id.
+  // Refreshing the user updates mustChangePassword after a successful change.
   async function changePassword(event) {
     event.preventDefault();
     setPasswordBusy(true);
@@ -170,6 +183,7 @@ export default function DashboardPage() {
             value={text}
             disabled={Boolean(busy)}
             onChange={(event) => {
+              // Results belong to the previous sample and must be cleared when it changes.
               setText(event.target.value);
               setEncrypted(null);
               setDecrypted(null);
@@ -203,6 +217,7 @@ export default function DashboardPage() {
                   value={encrypted[field]}
                   disabled={Boolean(busy)}
                   onChange={(event) => {
+                    // Editing the payload invalidates the previously demonstrated decryption.
                     setEncrypted({ ...encrypted, [field]: event.target.value });
                     setDecrypted(null);
                     setError("");

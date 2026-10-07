@@ -1,3 +1,4 @@
+// Gives components access to authentication and catches use outside AuthProvider.
 import { useContext } from 'react';
 
 import {
