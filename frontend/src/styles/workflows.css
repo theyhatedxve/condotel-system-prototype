@@ -1,0 +1,112 @@
+.workflow-panel {
+  max-width: 680px;
+  padding: 28px;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+}
+.workflow-form {
+  display: grid;
+  gap: 16px;
+  margin: 20px 0;
+}
+.workflow-form label {
+  display: grid;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.workflow-form input,
+.workflow-form select,
+.workflow-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font: inherit;
+  color: inherit;
+  background: white;
+  box-sizing: border-box;
+}
+.workflow-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+.workflow-form small {
+  font-weight: 400;
+  color: #64748b;
+}
+.workflow-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.workflow-actions button {
+  padding: 10px 16px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.workflow-error {
+  color: #b91c1c;
+}
+.workflow-dialog {
+  width: min(600px, 92vw);
+  max-height: 90vh;
+  padding: 24px;
+  border: 0;
+  border-radius: 14px;
+  color: #1e293b;
+}
+.workflow-dialog::backdrop {
+  background: #0f172a80;
+}
+.workflow-dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.workflow-dialog-heading button {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+}
+.workflow-dialog-heading h2 {
+  margin: 0;
+}
+.registration-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f1f5f9;
+}
+.registration-shell .workflow-panel {
+  width: min(600px, 100%);
+}
+.workflow-pagination {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0;
+}
+.notification-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.notification-list li {
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.notification-list li button {
+  display: block;
+  margin-top: 8px;
+}
+.reservation-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

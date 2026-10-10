@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
 
 export interface EncryptedValue {
   ciphertext: string;
@@ -20,7 +26,7 @@ export class EncryptionService {
 
   // UTF-8 plaintext; ciphertext, IV and tag use canonical padded Base64.
   // Operations return encrypted values without persisting the input text.
-  encrypt(plaintext: string): EncryptedValue {
+  encrypt(plaintext: string, context?: string): EncryptedValue {
     const key = this.getMasterKey();
 
     if (typeof plaintext !== 'string') {
@@ -32,6 +38,7 @@ export class EncryptionService {
     const cipher = createCipheriv(ALGORITHM, key, iv, {
       authTagLength: AUTH_TAG_BYTES,
     });
+    if (context !== undefined) cipher.setAAD(Buffer.from(context, 'utf8'));
     const ciphertext = Buffer.concat([
       cipher.update(plaintext, 'utf8'),
       cipher.final(),
@@ -44,11 +51,14 @@ export class EncryptionService {
     };
   }
 
-  decrypt(encrypted: EncryptedValue): string {
+  decrypt(encrypted: EncryptedValue, context?: string): string {
     const key = this.getMasterKey();
 
     try {
-      const ciphertext = this.decodeBase64(encrypted.ciphertext, DECRYPTION_ERROR);
+      const ciphertext = this.decodeBase64(
+        encrypted.ciphertext,
+        DECRYPTION_ERROR,
+      );
       const iv = this.decodeBase64(encrypted.iv, DECRYPTION_ERROR);
       const authTag = this.decodeBase64(encrypted.authTag, DECRYPTION_ERROR);
 
@@ -59,6 +69,7 @@ export class EncryptionService {
       const decipher = createDecipheriv(ALGORITHM, key, iv, {
         authTagLength: AUTH_TAG_BYTES,
       });
+      if (context !== undefined) decipher.setAAD(Buffer.from(context, 'utf8'));
       decipher.setAuthTag(authTag);
 
       // Empty ciphertext is valid for an empty string, but still requires a tag.
@@ -75,6 +86,25 @@ export class EncryptionService {
   // Returns a new per-device 32-byte key as Base64; never persists it.
   generateRandomKey(): string {
     return randomBytes(KEY_BYTES).toString('base64');
+  }
+
+  // One independent search secret, domain-separated for each contact field.
+  blindIndex(field: 'email' | 'phone', normalizedValue: string): string {
+    const encoded = this.configService.get<string>('CONTACT_SEARCH_KEY');
+    if (!encoded) throw new Error('Contact search key is not configured.');
+    const key = this.decodeBase64(
+      encoded,
+      'Contact search key must be canonical Base64.',
+    );
+    if (key.length !== KEY_BYTES)
+      throw new Error('Contact search key must decode to exactly 32 bytes.');
+    if (timingSafeEqual(key, this.getMasterKey())) {
+      throw new Error('Contact search and encryption keys must be different.');
+    }
+    return createHmac('sha256', key)
+      .update(`condotel:contact-index:v1:${field}\0`, 'utf8')
+      .update(normalizedValue, 'utf8')
+      .digest('hex');
   }
 
   private getMasterKey(): Buffer {

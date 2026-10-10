@@ -6,9 +6,11 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy, JwtAuthGuard } from './jwt.strategy';
+import { SecurityModule } from '../security/security.module';
 
 @Module({
   imports: [
+    SecurityModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],

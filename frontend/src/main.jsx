@@ -10,6 +10,7 @@ import AppRoutes from "./routes/AppRoutes";
 
 import "./styles/global.css";
 import "./styles/presentation.css";
+import "./styles/workflows.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

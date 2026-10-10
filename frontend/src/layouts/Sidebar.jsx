@@ -67,12 +67,6 @@ const navigation = [
   },
 
   {
-    label: "Device Management",
-    path: "/admin/devices",
-    icon: RadioTower,
-    adminOnly: true,
-  },
-  {
     label: "Payments",
 
     path: "/admin/payments",

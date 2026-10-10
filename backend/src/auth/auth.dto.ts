@@ -2,6 +2,10 @@
 // Identity fields are normalized, while passwords retain their exact submitted characters.
 import { Transform } from 'class-transformer';
 import {
+  normalizeEmail,
+  normalizePhone,
+} from '../security/contact-protection.service';
+import {
   IsEmail,
   IsOptional,
   IsString,
@@ -13,7 +17,7 @@ import {
 export class RegisterDto {
   @IsEmail()
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().toLowerCase() : value,
+    typeof value === 'string' ? normalizeEmail(value) : value,
   )
   email: string;
 
@@ -61,7 +65,7 @@ export class RegisterDto {
       return value;
     }
 
-    const phone = value.trim();
+    const phone = normalizePhone(value);
 
     return phone === '' ? undefined : phone;
   })
@@ -72,7 +76,7 @@ export class LoginDto {
   @MinLength(1)
   @MaxLength(255)
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().toLowerCase() : value,
+    typeof value === 'string' ? normalizeEmail(value) : value,
   )
   identifier: string;
 

@@ -23,12 +23,21 @@ enum UserStatus {
 // Account identity and password state used by authentication and the profile view.
 model User {
   id                 String     @id @default(cuid())
-  email              String     @unique
+  // Transitional columns used only by the offline migration, always NULL after finalization.
+  legacyEmail        String?    @unique(map: "User_email_key") @map("email")
+  legacyPhone        String?    @map("phone")
+  emailCiphertext    String?
+  emailIv            String?
+  emailAuthTag       String?
+  emailBlindIndex    String?    @unique
+  phoneCiphertext    String?
+  phoneIv            String?
+  phoneAuthTag       String?
+  phoneBlindIndex    String?
   username           String?    @unique
   passwordHash       String
   firstName          String
   lastName           String
-  phone              String?
   role               UserRole   @default(CUSTOMER)
   status             UserStatus @default(ACTIVE)
   lastLoginAt        DateTime?
@@ -36,12 +45,16 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
+  reservations       Reservation[]
+  notifications      Notification[]
+
   @@index([role])
   @@index([status])
   @@index([lastName, firstName])
+  @@index([phoneBlindIndex])
 }
 
-// Only encrypted device secrets are persisted; provisioning returns plaintext once.
+// Retained archive only. Device Management has no routes or active services.
 model Device {
   deviceId            String   @id @default(cuid())
   deviceName          String   @unique
@@ -49,4 +62,71 @@ model Device {
   deviceKeyIv         String
   deviceKeyAuthTag    String
   createdAt           DateTime @default(now())
+}
+
+model Room {
+  id                    String @id @default(cuid())
+  roomNumber            String @unique
+  roomType              String
+  floor                 Int?
+  capacity              Int @default(2)
+  ratePerNightCentavos   Int
+  status                String @default("AVAILABLE")
+  isActive              Boolean @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  reservations          Reservation[]
+}
+
+model Reservation {
+  id                        String @id @default(cuid())
+  referenceNo               String @unique
+  guestId                   String
+  roomId                    String
+  checkIn                   DateTime
+  checkOut                  DateTime
+  adults                    Int @default(1)
+  children                  Int @default(0)
+  totalAmountCentavos        Int
+  status                    String @default("PENDING")
+  // Migration-only plaintext column; never populated by runtime writes.
+  legacySpecialRequests     String? @map("specialRequests")
+  specialRequestsCiphertext String?
+  specialRequestsIv         String?
+  specialRequestsAuthTag    String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  guest                     User @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  room                      Room @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  payment                   Payment?
+  @@index([guestId])
+  @@index([roomId, checkIn, checkOut])
+}
+
+model Payment {
+  id                        String @id @default(cuid())
+  reservationId             String @unique
+  paymongoCheckoutSessionId String? @unique
+  amountCentavos            Int
+  currency                  String @default("PHP")
+  status                    String @default("CREATING")
+  checkoutUrl               String?
+  paidAt                    DateTime?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  reservation               Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+}
+
+model Notification {
+  id        String @id @default(cuid())
+  userId    String
+  type      String
+  // Fixed messages only; contacts and reservation notes must never be copied here.
+  message   String
+  entityId  String?
+  dedupeKey String @unique
+  isRead    Boolean @default(false)
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, isRead])
 }

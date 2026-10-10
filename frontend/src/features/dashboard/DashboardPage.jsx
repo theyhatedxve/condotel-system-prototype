@@ -1,4 +1,4 @@
-// Static presentation values; controls do not create or update business records.
+import { useResource } from "../shared/useResource";
 import { BedDouble, CalendarCheck, CreditCard, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
@@ -16,39 +16,10 @@ function formatStatus(status) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const statistics = {
-    totalRooms: 2,
-    currentGuests: 2,
-    todayCheckIns: 1,
-    todayCheckOuts: 0,
-    todayPaymentsCentavos: 500000,
-    todayPaymentCount: 1,
-  };
-  const occupancy = {
-    occupiedRooms: 1,
-    availableRooms: 1,
-    maintenanceRooms: 0,
-    occupancyPercent: 50,
-  };
-  const recentReservations = [
-    {
-      id: "sample-reservation",
-      referenceNo: "SAMPLE-001",
-      guest: {
-        id: "sample-guest",
-        firstName: "Sample",
-        lastName: "Guest",
-        email: "guest@example.test",
-        phone: "",
-        status: "ACTIVE",
-      },
-      room: { roomNumber: "101" },
-      checkIn: "2026-10-07T00:00:00Z",
-      checkOut: "2026-10-09T00:00:00Z",
-      totalAmountCentavos: 500000,
-      status: "CONFIRMED",
-    },
-  ];
+  const { data, error } = useResource("/dashboard");
+  if (error) return <p role="alert">{error}</p>;
+  if (!data) return <p role="status">Loading dashboard...</p>;
+  const { statistics, occupancy, recentReservations } = data;
   const cards = [
     {
       title: "Total Rooms",

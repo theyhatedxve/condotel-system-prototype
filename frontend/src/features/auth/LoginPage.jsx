@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { Building2, Eye, EyeOff, KeyRound, Mail, Waves } from "lucide-react";
 
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 
 import { useAuth } from "./useAuth";
 
@@ -193,7 +193,11 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="login-footer">Condotel NFC System with Payment</div>
+          <div className="login-footer">
+            <Link to="/register">Create account</Link>
+            <br />
+            Condotel NFC System with Payment
+          </div>
         </div>
       </section>
     </main>

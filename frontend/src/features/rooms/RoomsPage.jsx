@@ -1,4 +1,8 @@
-// Static presentation values; controls do not create or update business records.
+import { useState } from "react";
+import { useAuth } from "../auth/useAuth";
+import { apiError, useResource } from "../shared/useResource";
+import { WorkflowDialog, WorkflowForm } from "../shared/WorkflowForm";
+import apiClient from "../../services/apiClient";
 import { Plus } from "lucide-react";
 import {
   BedDouble,
@@ -30,7 +34,7 @@ const filters = [
 function getStatusClass(status) {
   return status.toLowerCase().replaceAll("_", "-");
 }
-function RoomCard({ room }) {
+function RoomCard({ room, canManage, onEdit, onToggle }) {
   return (
     <article className={`room-card ${!room.isActive ? "inactive" : ""}`}>
       <div className="room-image">
@@ -80,16 +84,31 @@ function RoomCard({ room }) {
 
           {
             <div className="room-actions">
-              <button type="button" title="Edit room" disabled>
+              <button
+                type="button"
+                title="Edit room"
+                disabled={!canManage}
+                onClick={() => onEdit(room)}
+              >
                 <Pencil size={15} />
               </button>
 
               {room.isActive ? (
-                <button type="button" title="Deactivate room" disabled>
+                <button
+                  type="button"
+                  title="Deactivate room"
+                  disabled={!canManage}
+                  onClick={() => onToggle(room)}
+                >
                   <Power size={15} />
                 </button>
               ) : (
-                <button type="button" title="Reactivate room" disabled>
+                <button
+                  type="button"
+                  title="Reactivate room"
+                  disabled={!canManage}
+                  onClick={() => onToggle(room)}
+                >
                   <RotateCcw size={15} />
                 </button>
               )}
@@ -102,29 +121,24 @@ function RoomCard({ room }) {
 }
 
 export default function RoomsPage() {
-  const rooms = [
-    {
-      id: "sample-room-101",
-      roomNumber: "101",
-      roomType: "Deluxe",
-      status: "AVAILABLE",
-      isActive: true,
-      capacity: 2,
-      floor: 1,
-      ratePerNightCentavos: 250000,
-    },
-    {
-      id: "sample-room-102",
-      roomNumber: "102",
-      roomType: "Suite",
-      status: "OCCUPIED",
-      isActive: true,
-      capacity: 4,
-      floor: 1,
-      ratePerNightCentavos: 400000,
-    },
-  ];
-  const statusFilter = "";
+  const { user } = useAuth();
+  const canManage = ["STAFF", "ADMIN"].includes(user.role);
+  const { data, error, reload } = useResource("/rooms");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [actionError, setActionError] = useState("");
+  const rooms = (data || []).filter(
+    (room) => !statusFilter || room.status === statusFilter,
+  );
+  async function toggle(room) {
+    try {
+      await apiClient.patch("/rooms/" + room.id, { isActive: !room.isActive });
+      reload();
+      setActionError("");
+    } catch (failure) {
+      setActionError(apiError(failure));
+    }
+  }
   return (
     <section className="rooms-page">
       <header className="rooms-page-header">
@@ -138,7 +152,10 @@ export default function RoomsPage() {
           <button
             type="button"
             className="primary-button add-room-button"
-            disabled
+            disabled={!canManage}
+            onClick={() =>
+              setEditing({ capacity: 2, ratePerNightCentavos: 250000 })
+            }
           >
             <Plus size={17} />
             Add Room
@@ -156,7 +173,7 @@ export default function RoomsPage() {
                 ? "room-filter active"
                 : "room-filter"
             }
-            disabled
+            onClick={() => setStatusFilter(filter.value)}
           >
             {filter.label}
           </button>
@@ -168,9 +185,102 @@ export default function RoomsPage() {
       ) : (
         <div className="room-grid">
           {rooms.map((room) => (
-            <RoomCard key={room.id} room={room} true={true} />
+            <RoomCard
+              key={room.id}
+              room={room}
+              canManage={canManage}
+              onEdit={setEditing}
+              onToggle={toggle}
+            />
           ))}
         </div>
+      )}
+      {(error || actionError) && <p role="alert">{error || actionError}</p>}
+      {editing && (
+        <WorkflowDialog
+          title={editing.id ? "Edit Room" : "Add Room"}
+          onClose={() => setEditing(null)}
+        >
+          <WorkflowForm
+            initial={{
+              ...editing,
+              status:
+                editing.status === "OCCUPIED" ? "AVAILABLE" : editing.status,
+            }}
+            fields={[
+              ...(!editing.id
+                ? [
+                    {
+                      name: "roomNumber",
+                      label: "Room number",
+                      required: true,
+                      maxLength: 30,
+                    },
+                    {
+                      name: "roomType",
+                      label: "Room type",
+                      required: true,
+                      maxLength: 100,
+                    },
+                    {
+                      name: "floor",
+                      label: "Floor (optional)",
+                      type: "number",
+                      min: -10,
+                      max: 200,
+                    },
+                    {
+                      name: "capacity",
+                      label: "Capacity",
+                      type: "number",
+                      required: true,
+                      min: 1,
+                      max: 50,
+                    },
+                  ]
+                : [
+                    {
+                      name: "status",
+                      label: "Availability",
+                      required: true,
+                      options: [
+                        { value: "AVAILABLE", label: "Available" },
+                        { value: "MAINTENANCE", label: "Maintenance" },
+                      ],
+                    },
+                  ]),
+              {
+                name: "ratePerNightCentavos",
+                label: "Nightly rate (centavos)",
+                type: "number",
+                required: true,
+                min: 100,
+                max: 5000000,
+              },
+            ]}
+            onCancel={() => setEditing(null)}
+            onSubmit={async (values) => {
+              if (editing.id)
+                await apiClient.patch("/rooms/" + editing.id, {
+                  ratePerNightCentavos: Number(values.ratePerNightCentavos),
+                  status: values.status,
+                });
+              else
+                await apiClient.post("/rooms", {
+                  roomNumber: values.roomNumber,
+                  roomType: values.roomType,
+                  capacity: Number(values.capacity),
+                  floor:
+                    values.floor === undefined || values.floor === ""
+                      ? undefined
+                      : Number(values.floor),
+                  ratePerNightCentavos: Number(values.ratePerNightCentavos),
+                });
+              setEditing(null);
+              reload();
+            }}
+          />
+        </WorkflowDialog>
       )}
     </section>
   );

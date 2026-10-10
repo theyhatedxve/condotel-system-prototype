@@ -7,18 +7,29 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { randomUUID } from 'node:crypto';
+import {
+  ContactProtectionService,
+  normalizeEmail,
+} from '../security/contact-protection.service';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto, LoginDto, RegisterDto } from './auth.dto';
 
 // Explicit projection keeps password hashes out of responses and request.user.
-const publicUser = {
+export const publicUser = {
   id: true,
-  email: true,
+  emailCiphertext: true,
+  emailIv: true,
+  emailAuthTag: true,
+  emailBlindIndex: true,
   username: true,
   firstName: true,
   lastName: true,
-  phone: true,
+  phoneCiphertext: true,
+  phoneIv: true,
+  phoneAuthTag: true,
+  phoneBlindIndex: true,
   role: true,
   status: true,
   mustChangePassword: true,
@@ -27,18 +38,55 @@ const publicUser = {
   updatedAt: true,
 } satisfies Prisma.UserSelect;
 
-export type AuthenticatedUser = Prisma.UserGetPayload<{
+export type ContactUser = Prisma.UserGetPayload<{
   select: typeof publicUser;
 }>;
+export type AuthenticatedUser = Omit<
+  ContactUser,
+  | 'emailCiphertext'
+  | 'emailIv'
+  | 'emailAuthTag'
+  | 'emailBlindIndex'
+  | 'phoneCiphertext'
+  | 'phoneIv'
+  | 'phoneAuthTag'
+  | 'phoneBlindIndex'
+> & {
+  email: string;
+  phone: string | null;
+};
+
+// An explicit allowlist prevents ciphertext, indexes, legacy columns and hashes escaping.
+export function userResponse(
+  user: ContactUser,
+  contact: { email: string; phone: string | null },
+): AuthenticatedUser {
+  return {
+    id: user.id,
+    username: user.username,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    role: user.role,
+    status: user.status,
+    mustChangePassword: user.mustChangePassword,
+    lastLoginAt: user.lastLoginAt,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    ...contact,
+  };
+}
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly contacts: ContactProtectionService,
   ) {}
 
   async register(dto: RegisterDto) {
+    const id = randomUUID();
+    const encrypted = this.contacts.write(id, dto);
     // Passwords use one-way Argon2id hashing because authentication requires verification,
     // not reversible storage; only the resulting hash is persisted.
     const passwordHash = await argon2.hash(dto.password, {
@@ -47,16 +95,19 @@ export class AuthService {
     try {
       const user = await this.prisma.user.create({
         data: {
-          email: dto.email,
+          id,
+          ...encrypted,
           username: dto.username,
           firstName: dto.firstName,
           lastName: dto.lastName,
-          phone: dto.phone,
           passwordHash,
         },
         select: publicUser,
       });
-      return { message: 'Registration successful.', user };
+      return {
+        message: 'Registration successful.',
+        user: userResponse(user, this.contacts.readOwn(user, id)),
+      };
     } catch (error) {
       // Database uniqueness enforcement also catches competing registrations for the same identity.
       if (
@@ -71,7 +122,12 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findFirst({
-      where: { OR: [{ email: dto.identifier }, { username: dto.identifier }] },
+      where: {
+        OR: [
+          { emailBlindIndex: this.contacts.index('email', dto.identifier) },
+          { username: normalizeEmail(dto.identifier) },
+        ],
+      },
     });
     // Missing accounts, inactive accounts and incorrect passwords share the same failure response.
     // Argon2id verifies the stored hash without recovering the original password.
@@ -93,7 +149,7 @@ export class AuthService {
       message: 'Login successful.',
       accessToken,
       tokenType: 'Bearer',
-      user: safeUser,
+      user: userResponse(safeUser, this.contacts.readOwn(safeUser, user.id)),
     };
   }
 
@@ -105,7 +161,7 @@ export class AuthService {
     // Recheck the account on each request; a valid token alone is insufficient.
     if (!user || user.status !== 'ACTIVE')
       throw new UnauthorizedException('User account is unavailable.');
-    return user;
+    return userResponse(user, this.contacts.readOwn(user, id));
   }
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -129,6 +185,12 @@ export class AuthService {
       data: { passwordHash, mustChangePassword: false },
       select: publicUser,
     });
-    return { message: 'Password changed successfully.', user: updatedUser };
+    return {
+      message: 'Password changed successfully.',
+      user: userResponse(
+        updatedUser,
+        this.contacts.readOwn(updatedUser, userId),
+      ),
+    };
   }
 }

@@ -24,6 +24,11 @@ logs/
 # SQLite database
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+.test-data-*/
+.test-artifacts/
+.local-backups/
 
 # IDE
 .vscode/
