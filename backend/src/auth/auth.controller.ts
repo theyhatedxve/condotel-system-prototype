@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import type { AuthenticatedUser } from './auth.service';
+import type { AuthenticatedUser } from '../users/user-response';
 import { ChangePasswordDto, LoginDto, RegisterDto } from './auth.dto';
 import { JwtAuthGuard } from './jwt.strategy';
 

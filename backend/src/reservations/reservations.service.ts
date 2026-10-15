@@ -7,7 +7,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
-import { publicUser } from '../auth/auth.service';
+import { contactUserSelect } from '../users/user-response';
 import {
   Actor,
   requireActive,
@@ -23,13 +23,25 @@ import {
   UpdateRoomDto,
 } from './reservations.dto';
 
-const include = {
+// Fetch encrypted guest contacts internally; response() controls what reaches callers.
+const bookingRelations = {
   room: true,
-  guest: { select: publicUser },
+  guest: { select: contactUserSelect },
 } satisfies Prisma.ReservationInclude;
-type Booking = Prisma.ReservationGetPayload<{ include: typeof include }>;
+type Booking = Prisma.ReservationGetPayload<{
+  include: typeof bookingRelations;
+}>;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HOTEL_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+const STATUS_TRANSITIONS: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['CHECKED_IN', 'CANCELLED'],
+  CHECKED_IN: ['CHECKED_OUT'],
+};
+
+// Booking dates are hotel calendar days (UTC+8), stored at UTC midnight.
 export const todayAtHotel = () =>
-  new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  new Date(Date.now() + HOTEL_UTC_OFFSET_MS).toISOString().slice(0, 10);
 
 @Injectable()
 export class ReservationsService {
@@ -69,9 +81,10 @@ export class ReservationsService {
     requireActive(actor);
     const scope = actor.role === 'CUSTOMER' ? { guestId: actor.id } : {};
     const date = new Date(todayAtHotel() + 'T00:00:00Z');
-    const tomorrow = new Date(date.getTime() + 86400000);
-    const paidStart = new Date(date.getTime() - 8 * 3600000);
-    const paidEnd = new Date(paidStart.getTime() + 86400000);
+    const tomorrow = new Date(date.getTime() + DAY_MS);
+    // Payments are timestamps, so their daily range starts at actual hotel midnight.
+    const paidStart = new Date(date.getTime() - HOTEL_UTC_OFFSET_MS);
+    const paidEnd = new Date(paidStart.getTime() + DAY_MS);
     const [
       rooms,
       current,
@@ -158,7 +171,7 @@ export class ReservationsService {
     requireOwnerOrStaff(actor, guestId);
     const checkIn = new Date(dto.checkIn + 'T00:00:00.000Z');
     const checkOut = new Date(dto.checkOut + 'T00:00:00.000Z');
-    const nights = (checkOut.getTime() - checkIn.getTime()) / 86400000;
+    const nights = (checkOut.getTime() - checkIn.getTime()) / DAY_MS;
     if (
       !Number.isInteger(nights) ||
       nights < 1 ||
@@ -176,6 +189,7 @@ export class ReservationsService {
       id,
       this.withArrival(dto.specialRequests ?? null, dto.estimatedArrival),
     );
+    // Check availability and create the booking/notification in one transaction.
     const row = await this.prisma.$transaction(async (tx) => {
       const guest = await tx.user.findUnique({
         where: { id: guestId },
@@ -211,7 +225,7 @@ export class ReservationsService {
           totalAmountCentavos: nights * room.ratePerNightCentavos,
           ...encrypted,
         },
-        include,
+        include: bookingRelations,
       });
       await tx.notification.create({
         data: {
@@ -248,7 +262,7 @@ export class ReservationsService {
         ...(actor.role === 'CUSTOMER' ? { guestId: actor.id } : {}),
         ...(status ? { status } : {}),
       },
-      include,
+      include: bookingRelations,
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: 50,
       skip: (page - 1) * 50,
@@ -263,7 +277,7 @@ export class ReservationsService {
     requireActive(actor);
     const row = await this.prisma.reservation.findUnique({
       where: { id },
-      include,
+      include: bookingRelations,
     });
     if (!row) throw new NotFoundException('Reservation not found.');
     requireOwnerOrStaff(actor, row.guestId);
@@ -274,25 +288,25 @@ export class ReservationsService {
     if (['CANCELLED', 'CHECKED_OUT'].includes(existing.status))
       throw new ConflictException('This reservation is closed.');
     if (dto.status && dto.status !== 'CANCELLED') requireStaff(actor);
-    const transitions: Record<string, string[]> = {
-      PENDING: ['CONFIRMED', 'CANCELLED'],
-      CONFIRMED: ['CHECKED_IN', 'CANCELLED'],
-      CHECKED_IN: ['CHECKED_OUT'],
-    };
-    if (dto.status && !transitions[existing.status]?.includes(dto.status))
+    if (
+      dto.status &&
+      !STATUS_TRANSITIONS[existing.status]?.includes(dto.status)
+    )
       throw new ConflictException('Invalid reservation status transition.');
-    const encrypted =
-      dto.specialRequests !== undefined || dto.estimatedArrival !== undefined
-        ? this.notes.write(
-            id,
-            this.withArrival(
-              dto.specialRequests === undefined
-                ? this.notes.read(existing, actor)
-                : dto.specialRequests,
-              dto.estimatedArrival,
-            ),
-          )
-        : {};
+    // Omitted notes preserve existing ciphertext; explicit null clears the notes.
+    const notesChanged =
+      dto.specialRequests !== undefined || dto.estimatedArrival !== undefined;
+    const encrypted = notesChanged
+      ? this.notes.write(
+          id,
+          this.withArrival(
+            dto.specialRequests === undefined
+              ? this.notes.read(existing, actor)
+              : dto.specialRequests,
+            dto.estimatedArrival,
+          ),
+        )
+      : {};
     const row = await this.prisma.$transaction(async (tx) => {
       if (
         dto.status === 'CANCELLED' &&
@@ -302,6 +316,7 @@ export class ReservationsService {
           'A checkout exists. Contact staff to reconcile payment and cancellation before releasing this booking.',
         );
       }
+      // Reject stale edits instead of overwriting a concurrent staff/customer update.
       const changed = await tx.reservation.updateMany({
         where: { id, updatedAt: existing.updatedAt },
         data: { ...encrypted, ...(dto.status ? { status: dto.status } : {}) },
@@ -318,7 +333,10 @@ export class ReservationsService {
             dedupeKey: `reservation:${id}:${dto.status}`,
           },
         });
-      return tx.reservation.findUniqueOrThrow({ where: { id }, include });
+      return tx.reservation.findUniqueOrThrow({
+        where: { id },
+        include: bookingRelations,
+      });
     });
     return this.response(row, actor);
   }

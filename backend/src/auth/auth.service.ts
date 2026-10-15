@@ -15,66 +15,8 @@ import {
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto, LoginDto, RegisterDto } from './auth.dto';
-
-// Explicit projection keeps password hashes out of responses and request.user.
-export const publicUser = {
-  id: true,
-  emailCiphertext: true,
-  emailIv: true,
-  emailAuthTag: true,
-  emailBlindIndex: true,
-  username: true,
-  firstName: true,
-  lastName: true,
-  phoneCiphertext: true,
-  phoneIv: true,
-  phoneAuthTag: true,
-  phoneBlindIndex: true,
-  role: true,
-  status: true,
-  mustChangePassword: true,
-  lastLoginAt: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.UserSelect;
-
-export type ContactUser = Prisma.UserGetPayload<{
-  select: typeof publicUser;
-}>;
-export type AuthenticatedUser = Omit<
-  ContactUser,
-  | 'emailCiphertext'
-  | 'emailIv'
-  | 'emailAuthTag'
-  | 'emailBlindIndex'
-  | 'phoneCiphertext'
-  | 'phoneIv'
-  | 'phoneAuthTag'
-  | 'phoneBlindIndex'
-> & {
-  email: string;
-  phone: string | null;
-};
-
-// An explicit allowlist prevents ciphertext, indexes, legacy columns and hashes escaping.
-export function userResponse(
-  user: ContactUser,
-  contact: { email: string; phone: string | null },
-): AuthenticatedUser {
-  return {
-    id: user.id,
-    username: user.username,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    role: user.role,
-    status: user.status,
-    mustChangePassword: user.mustChangePassword,
-    lastLoginAt: user.lastLoginAt,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-    ...contact,
-  };
-}
+import { contactUserSelect, userResponse } from '../users/user-response';
+import type { AuthenticatedUser } from '../users/user-response';
 
 @Injectable()
 export class AuthService {
@@ -102,7 +44,7 @@ export class AuthService {
           lastName: dto.lastName,
           passwordHash,
         },
-        select: publicUser,
+        select: contactUserSelect,
       });
       return {
         message: 'Registration successful.',
@@ -141,7 +83,7 @@ export class AuthService {
     const safeUser = await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
-      select: publicUser,
+      select: contactUserSelect,
     });
     // Sign only after successful verification; the subject identifies the account without embedding its data.
     const accessToken = await this.jwt.signAsync({ sub: user.id });
@@ -156,7 +98,7 @@ export class AuthService {
   async findAuthenticatedUser(id: string): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: publicUser,
+      select: contactUserSelect,
     });
     // Recheck the account on each request; a valid token alone is insufficient.
     if (!user || user.status !== 'ACTIVE')
@@ -183,7 +125,7 @@ export class AuthService {
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { passwordHash, mustChangePassword: false },
-      select: publicUser,
+      select: contactUserSelect,
     });
     return {
       message: 'Password changed successfully.',

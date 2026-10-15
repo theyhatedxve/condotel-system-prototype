@@ -9,13 +9,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt.strategy';
-import type { AuthenticatedUser } from '../auth/auth.service';
+import type { AuthenticatedUser } from '../users/user-response';
 import { requireActive } from '../security/access';
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private readonly prisma: PrismaService) {}
-  @Get() list(@Req() req: { user: AuthenticatedUser }) {
+  @Get()
+  list(@Req() req: { user: AuthenticatedUser }) {
     requireActive(req.user);
     return this.prisma.notification.findMany({
       where: { userId: req.user.id },
@@ -23,10 +24,9 @@ export class NotificationsController {
       take: 50,
     });
   }
-  @Patch(':id/read') async read(
-    @Req() req: { user: AuthenticatedUser },
-    @Param('id') id: string,
-  ) {
+
+  @Patch(':id/read')
+  async read(@Req() req: { user: AuthenticatedUser }, @Param('id') id: string) {
     requireActive(req.user);
     const result = await this.prisma.notification.updateMany({
       where: { id, userId: req.user.id },

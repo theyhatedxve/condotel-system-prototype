@@ -48,18 +48,23 @@ export class UpdateProfileDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   lastName?: string;
 }
+
 export class CreateManagedUserDto extends RegisterDto {
-  @IsOptional() @IsIn(['CUSTOMER', 'STAFF', 'ADMIN']) role?:
-    'CUSTOMER' | 'STAFF' | 'ADMIN';
+  @IsOptional()
+  @IsIn(['CUSTOMER', 'STAFF', 'ADMIN'])
+  role?: 'CUSTOMER' | 'STAFF' | 'ADMIN';
 }
+
 export class UpdateManagedUserDto extends UpdateProfileDto {
   @ValidateIf((_, value) => value !== undefined)
   @IsIn(['CUSTOMER', 'STAFF', 'ADMIN'])
   role?: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+
   @ValidateIf((_, value) => value !== undefined)
   @IsIn(['ACTIVE', 'INACTIVE', 'SUSPENDED'])
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 }
+
 export class ImportUsersDto {
   @IsArray()
   @ArrayMaxSize(50)

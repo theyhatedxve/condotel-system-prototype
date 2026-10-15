@@ -12,6 +12,21 @@ const filters = [
   { label: "Checked In", value: "CHECKED_IN" },
   { label: "Checked Out", value: "CHECKED_OUT" },
 ];
+const noteFields = [
+  {
+    name: "specialRequests",
+    label: "Special requests (optional)",
+    type: "textarea",
+  },
+  {
+    name: "estimatedArrival",
+    label: "Estimated arrival (optional)",
+    type: "time",
+    help: "Added to your reservation notes.",
+  },
+];
+
+// Page state and API operations live here; the JSX below describes the screen.
 export default function ReservationsPage() {
   const { user } = useAuth();
   const staff = ["ADMIN", "STAFF"].includes(user.role);
@@ -26,19 +41,6 @@ export default function ReservationsPage() {
   );
   const rooms = useResource("/rooms");
   const guests = useResource(staff ? "/guests" : null);
-  const noteFields = [
-    {
-      name: "specialRequests",
-      label: "Special requests (optional)",
-      type: "textarea",
-    },
-    {
-      name: "estimatedArrival",
-      label: "Estimated arrival (optional)",
-      type: "time",
-      help: "Added to your reservation notes.",
-    },
-  ];
   const [today] = useState(() =>
     new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10),
   );
@@ -54,6 +56,52 @@ export default function ReservationsPage() {
       setBusy(false);
     }
   }
+
+  // Form inputs are strings; convert numeric fields before sending validated API data.
+  async function createReservation(values) {
+    await apiClient.post("/reservations", {
+      ...values,
+      guestId: values.guestId || undefined,
+      adults: Number(values.adults),
+      children: Number(values.children || 0),
+      specialRequests: values.specialRequests ?? null,
+      estimatedArrival: values.estimatedArrival || undefined,
+    });
+    setCreating(false);
+    reload();
+  }
+
+  // Notes stay readable in the form; the backend authorizes and encrypts every write.
+  async function saveNotes(values) {
+    await apiClient.patch("/reservations/" + editing.id, {
+      specialRequests: values.specialRequests || null,
+      estimatedArrival: values.estimatedArrival || undefined,
+    });
+    setEditing(null);
+    reload();
+  }
+
+  function updateStatus(reservationId, status) {
+    return action(() =>
+      apiClient.patch("/reservations/" + reservationId, { status }),
+    );
+  }
+
+  function cancelReservation(reservationId) {
+    if (window.confirm("Cancel this reservation?")) {
+      void updateStatus(reservationId, "CANCELLED");
+    }
+  }
+
+  function checkout(reservationId) {
+    return action(async () => {
+      const response = await apiClient.post(
+        "/payments/checkout/" + reservationId,
+      );
+      window.location.assign(response.data.checkoutUrl);
+    });
+  }
+
   return (
     <section className="reservations-page">
       <header className="reservations-header">
@@ -141,29 +189,14 @@ export default function ReservationsPage() {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() =>
-                            action(async () => {
-                              const response = await apiClient.post(
-                                "/payments/checkout/" + reservation.id,
-                              );
-                              window.location.assign(response.data.checkoutUrl);
-                            })
-                          }
+                          onClick={() => checkout(reservation.id)}
                         >
                           Pay
                         </button>
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => {
-                            if (window.confirm("Cancel this reservation?"))
-                              void action(() =>
-                                apiClient.patch(
-                                  "/reservations/" + reservation.id,
-                                  { status: "CANCELLED" },
-                                ),
-                              );
-                          }}
+                          onClick={() => cancelReservation(reservation.id)}
                         >
                           Cancel
                         </button>
@@ -299,18 +332,7 @@ export default function ReservationsPage() {
             ]}
             onCancel={() => setCreating(false)}
             submitLabel="Book reservation"
-            onSubmit={async (values) => {
-              await apiClient.post("/reservations", {
-                ...values,
-                guestId: values.guestId || undefined,
-                adults: Number(values.adults),
-                children: Number(values.children || 0),
-                specialRequests: values.specialRequests ?? null,
-                estimatedArrival: values.estimatedArrival || undefined,
-              });
-              setCreating(false);
-              reload();
-            }}
+            onSubmit={createReservation}
           />
         </WorkflowDialog>
       )}
@@ -327,14 +349,7 @@ export default function ReservationsPage() {
               fields={noteFields}
               initial={{ specialRequests: editing.specialRequests }}
               onCancel={() => setEditing(null)}
-              onSubmit={async (values) => {
-                await apiClient.patch("/reservations/" + editing.id, {
-                  specialRequests: values.specialRequests || null,
-                  estimatedArrival: values.estimatedArrival || undefined,
-                });
-                setEditing(null);
-                reload();
-              }}
+              onSubmit={saveNotes}
             />
           )}
         </WorkflowDialog>

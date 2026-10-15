@@ -15,7 +15,7 @@ import {
   requireAdmin,
   requireStaff,
 } from '../security/access';
-import { publicUser, userResponse } from '../auth/auth.service';
+import { contactUserSelect, userResponse } from './user-response';
 import { Prisma } from '../generated/prisma/client';
 import {
   CreateManagedUserDto,
@@ -58,7 +58,7 @@ export class UsersService {
     };
     const rows = await this.prisma.user.findMany({
       where,
-      select: publicUser,
+      select: contactUserSelect,
       orderBy: { id: 'asc' },
       take: 50,
       skip: (page - 1) * 50,
@@ -110,7 +110,7 @@ export class UsersService {
     const row = await this.prisma.user.update({
       where: { id },
       data,
-      select: publicUser,
+      select: contactUserSelect,
     });
     return userResponse(row, this.contacts.readAuthorized(row, actor));
   }
@@ -122,7 +122,10 @@ export class UsersService {
       throw new ForbiddenException('Guest accounts must be customers.');
     if (dto.role && dto.role !== 'CUSTOMER') requireAdmin(actor);
     const data = await this.creationData(dto);
-    const row = await this.prisma.user.create({ data, select: publicUser });
+    const row = await this.prisma.user.create({
+      data,
+      select: contactUserSelect,
+    });
     return userResponse(row, this.contacts.readAuthorized(row, actor));
   }
 

@@ -1,6 +1,6 @@
 # Implementation guide
 
-Use [README.md](README.md) for workflows and [PRIVACY.md](PRIVACY.md) for key setup, migration, recovery and provider configuration. CLEANUP.md is historical.
+Use [README.md](README.md) for workflows and [PRIVACY.md](PRIVACY.md) for key setup, migration, recovery and provider configuration.
 
 ## Backend boundaries
 
@@ -8,7 +8,8 @@ Use [README.md](README.md) for workflows and [PRIVACY.md](PRIVACY.md) for key se
 | --- | --- |
 | src/main.ts | Validation, CORS, raw webhook bodies, no-store responses and startup |
 | src/app.module.ts / business.module.ts | Module composition; sanitized ORM error filter; privacy readiness |
-| src/auth | Registration, Argon2id login/password changes, JWT signature/status checks and explicit user response projection |
+| src/auth | Registration, Argon2id login/password changes, JWT signature/status checks and authorized contact reads |
+| src/users/user-response.ts | Internal contact projection, public response allowlist and shared account types |
 | src/security/encryption.service.ts | Existing AES-256-GCM service; optional AAD; domain-separated HMAC blind indexes |
 | src/security/contact-protection.service.ts | Contact normalization, envelope writes, index verification and authorized contact reads |
 | src/security/reservation-notes.service.ts | Optional encrypted notes; exact-text preservation; authorization before decryption |
@@ -54,6 +55,26 @@ The original navigation shell, tables/cards and CSS are retained. Shared Workflo
 - Existing unrelated Reports/Transactions/Settings/NFC placeholder pages remain.
 
 API field names email, phone and specialRequests stay unchanged. Encryption keys and cryptographic operations are not shipped to the frontend.
+
+## Where to make changes
+
+- Page layout and buttons: edit the corresponding `frontend/src/features/<feature>/*Page.jsx`. Reservation operations have named handlers (`createReservation`, `saveNotes`, `checkout`, `cancelReservation`) before the JSX.
+- Shared form controls: `frontend/src/features/shared/WorkflowForm.jsx`. `FieldInput` renders one control, `WorkflowForm` manages submission/errors, and `WorkflowDialog` manages the modal. Changes here affect every consuming page.
+- Placeholder screens: `frontend/src/features/shared/PlaceholderPage.jsx`; the routes select the displayed title.
+- Request validation: edit the backend feature's `*.dto.ts`. Each field's decorators describe its accepted values. Preserve the distinction between omitted fields and explicit null when editing contacts or notes.
+- API behavior: controllers map routes/inputs; services check permissions and perform database operations. Return an explicit response projection rather than an entire database record.
+- Account response fields: `backend/src/users/user-response.ts`. `contactUserSelect` is an internal encrypted database projection; `userResponse` returns the public account fields after authorized decryption.
+- Encryption and key recovery: use the security services and PRIVACY.md. Keep cryptographic formats and migration history compatible with stored records.
+
+Comments explain permission boundaries, date conventions, transactions and shared-component behavior. Prefer descriptive names and small named functions over comments that repeat each statement.
+
+## Directory maintenance
+
+The obsolete CLEANUP.md report was removed because it described an earlier system with different features. This guide and README.md describe the current implementation. Stale disposable test data and screenshots were also removed; browser tests may regenerate screenshots.
+
+Keep `prisma/migrations`, `prisma/dev.db`, `.env`, `.local-backups`, package lockfiles and agent/skill configuration. They contain migration history, application data, recovery material or tool setup, not unused application code. `src/generated` is produced by Prisma; `dist` is produced by builds. Do not hand-edit either folder.
+
+Run `npm.cmd run format` in backend to format maintained TypeScript, or `npm.cmd run format:check` to check it. `.prettierignore` excludes generated clients, dependencies, build output and recovery/test artifacts. For frontend files, use the installed formatter from the frontend directory: `node ../backend/node_modules/prettier/bin/prettier.cjs --write "src/**/*.{js,jsx,css}"`.
 
 ## Verification
 

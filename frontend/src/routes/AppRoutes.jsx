@@ -5,7 +5,7 @@ import DashboardPage from "../features/dashboard/DashboardPage";
 import GuestsPage from "../features/guests/GuestsPage";
 import RoomsPage from "../features/rooms/RoomsPage";
 import ReservationsPage from "../features/reservations/ReservationsPage";
-import PlaceholderPage from "../features/nfc/PlaceholderPage";
+import PlaceholderPage from "../features/shared/PlaceholderPage";
 import AdminLayout from "../layouts/AdminLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import RegisterPage from "../features/auth/RegisterPage";

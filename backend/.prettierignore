@@ -1,0 +1,6 @@
+node_modules/
+dist/
+src/generated/
+.local-backups/
+.test-data-*/
+.test-artifacts/

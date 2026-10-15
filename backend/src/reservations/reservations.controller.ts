@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.strategy';
-import type { AuthenticatedUser } from '../auth/auth.service';
+import type { AuthenticatedUser } from '../users/user-response';
 import { ReservationsService } from './reservations.service';
 import {
   CreateReservationDto,
@@ -19,24 +19,31 @@ import {
   UpdateRoomDto,
 } from './reservations.dto';
 type Request = { user: AuthenticatedUser };
+// The service checks ownership before exposing guest contacts or reservation notes.
 @Controller('reservations')
 @UseGuards(JwtAuthGuard)
 export class ReservationsController {
   constructor(private readonly reservations: ReservationsService) {}
-  @Get() list(
+
+  @Get()
+  list(
     @Req() req: Request,
     @Query('status') status?: string,
     @Query('page') page?: string,
   ) {
     return this.reservations.list(req.user, status, Number(page ?? 1));
   }
-  @Get(':id') get(@Req() req: Request, @Param('id') id: string) {
+  @Get(':id')
+  get(@Req() req: Request, @Param('id') id: string) {
     return this.reservations.get(req.user, id);
   }
-  @Post() create(@Req() req: Request, @Body() dto: CreateReservationDto) {
+  @Post()
+  create(@Req() req: Request, @Body() dto: CreateReservationDto) {
     return this.reservations.create(req.user, dto);
   }
-  @Patch(':id') update(
+
+  @Patch(':id')
+  update(
     @Req() req: Request,
     @Param('id') id: string,
     @Body() dto: UpdateReservationDto,
@@ -48,13 +55,17 @@ export class ReservationsController {
 @UseGuards(JwtAuthGuard)
 export class RoomsController {
   constructor(private readonly reservations: ReservationsService) {}
-  @Get() list(@Req() req: Request) {
+  @Get()
+  list(@Req() req: Request) {
     return this.reservations.rooms(req.user);
   }
-  @Post() create(@Req() req: Request, @Body() dto: CreateRoomDto) {
+  @Post()
+  create(@Req() req: Request, @Body() dto: CreateRoomDto) {
     return this.reservations.createRoom(req.user, dto);
   }
-  @Patch(':id') update(
+
+  @Patch(':id')
+  update(
     @Req() req: Request,
     @Param('id') id: string,
     @Body() dto: UpdateRoomDto,
@@ -66,7 +77,8 @@ export class RoomsController {
 @UseGuards(JwtAuthGuard)
 export class DashboardController {
   constructor(private readonly reservations: ReservationsService) {}
-  @Get() get(@Req() req: Request) {
+  @Get()
+  get(@Req() req: Request) {
     return this.reservations.dashboard(req.user);
   }
 }

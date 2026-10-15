@@ -7,6 +7,8 @@ export function apiError(error) {
     ? message.join(" ")
     : message || "Unable to complete the request. Please try again.";
 }
+// A null path skips fetching (for example, guest choices for customer accounts).
+// Changing the path or calling reload starts a fresh authenticated request.
 export function useResource(path) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -27,6 +29,7 @@ export function useResource(path) {
           setError(apiError(error));
         }
       });
+    // Cancel obsolete requests when filters change or the component unmounts.
     return () => controller.abort();
   }, [path, revision]);
   return { data, error, reload };
